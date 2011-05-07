@@ -65,8 +65,9 @@ memdetect:
         %assign i 0
         %rep 6
             mov ecx,[es:eax+0+i*4]
-            xchg ecx,[es:eax-24+i*4]
-            mov [es:eax+0+i*4],ecx
+            mov edx,[es:eax-24+i*4]
+            mov [es:eax+0+i*4],edx
+            mov [es:eax-24+i*4],ecx
             %assign i i+1
         %endrep
         sub eax,24
