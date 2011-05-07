@@ -19,10 +19,21 @@ stage2_start:
 
     push test_msg
     call print
+
+    ;call detect_memory
     
+    jmp $
+
+section .text
+
+global loader_panic
+loader_panic:
+    push panic_msg
+    call print
+    add sp, 2
     jmp $
 
 section .data
     boot_disk_id: db 0
     test_msg: db 'We are here!', 10, 0
-
+    panic_msg: db 'Loader panic, stopping here', 10, 0

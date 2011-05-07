@@ -1,5 +1,8 @@
 ; asmsyntax=nasm
 
+; main.asm
+;extern loader_panic
+
 ; output.asm
 extern print
 extern putc
@@ -10,4 +13,4 @@ extern switch_to_protected
 extern switch_to_unreal
 
 ; mem.asm
-extern detect_memory
+;extern detect_memory

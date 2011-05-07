@@ -1,14 +1,16 @@
 ; Memory detection (not tested yet)
 ; asmsyntax=nasm
 
+%include "asm/stage2_common.inc"
+
 BITS 16
 
 ; Segment 0x1000 (64 KB) is internal allocator memory
 
-global detect_memory
-
 
 section .text
+
+global detect_memory
 detect_memory:
     push ds
     push es
@@ -85,9 +87,9 @@ detect_memory:
 
 
 error_got_nothing:
-    mov al,'('
-    mov ah,0x0E
-    int 0x10
+    push error_msg
+    call print
+    add sp, 2
     jmp done
 
 
@@ -111,3 +113,6 @@ exit:
     pop es
     pop ds
     ret
+
+section .data
+    error_msg: db 'Unable to detect memory', 10, 0
