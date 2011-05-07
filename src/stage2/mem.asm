@@ -1,7 +1,7 @@
 ; Memory detection (not tested yet)
 ; asmsyntax=nasm
 
-%include "asm/stage2_common.inc"
+%include "asm/output.inc"
 
 BITS 16
 

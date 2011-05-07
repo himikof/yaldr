@@ -16,13 +16,13 @@ stage2_start:
 
     ; There is current disk number in DL
 
+    call switch_to_unreal
+
     call clear_screen
 
     call a20_ensure
 
     call detect_memory
-
-    call switch_to_unreal
 
     push test_msg
     call print
