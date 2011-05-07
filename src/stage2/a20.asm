@@ -3,7 +3,6 @@
 
 BITS 16
 
-
 global a20_test
 global a20_ensure
 

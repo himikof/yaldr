@@ -4,7 +4,8 @@
 %include "asm/disk.inc"
 %include "asm/stage1/util.inc"
 
-bits 16
+BITS 16
+
 section .text
 
 ; Will be at 0x7c00

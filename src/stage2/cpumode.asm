@@ -1,7 +1,8 @@
 ; CPU mode switching
 ; asmsyntax=nasm
 
-bits 16
+BITS 16
+
 section .text
 
 ; This function returns manually

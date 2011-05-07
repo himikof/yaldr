@@ -6,7 +6,8 @@
 %include "asm/mem.inc"
 %include "asm/output.inc"
 
-bits 16
+BITS 16
+
 section .text.head
 
 ; Will be at 0x8000
@@ -25,10 +26,19 @@ stage2_start:
 
     push test_msg
     call print
-    
+
+    jmp $
+
+section .text
+
+global loader_panic
+loader_panic:
+    push panic_msg
+    call print
+    add sp, 2
     jmp $
 
 section .data
     boot_disk_id: db 0
     test_msg: db 'I have a surprise for you! Deploying surprise in 5...4...', 10, 0
-
+    panic_msg: db 'Loader panic, stopping here', 10, 0
