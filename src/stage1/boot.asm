@@ -2,7 +2,7 @@
 ; asmsyntax=nasm
 
 %include "asm/disk.inc"
-%include "asm/stage1_common.inc"
+%include "asm/stage1/util.inc"
 
 bits 16
 section .text

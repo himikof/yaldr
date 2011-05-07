@@ -1,7 +1,10 @@
 ; Stage2 code
 ; asmsyntax=nasm
 
-%include "asm/stage2_common.inc"
+%include "asm/a20.inc"
+%include "asm/cpumode.inc"
+%include "asm/mem.inc"
+%include "asm/output.inc"
 
 bits 16
 section .text.head
