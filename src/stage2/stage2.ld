@@ -4,7 +4,7 @@ ENTRY(stage2_start)
 
 MEMORY
 {
-    LOWSPACE (rwx) : org = 0x8000, len = 0x20000
+    LOWSPACE (rwx) : org = 0x8000, len = 0x4000
 }
 
 SECTIONS

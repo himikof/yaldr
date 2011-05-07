@@ -111,10 +111,11 @@ relocated:
     sub al, cl ; read the rest of the first track
     xor ah, ah
     cmp ax, si
-    jae .fd_load_loop
+    jbe .fd_load_loop
     mov ax, si
     
 .fd_load_loop:
+    mov di, ax
     mov ah, 0x02
     int 0x13
     jc .error
@@ -141,7 +142,6 @@ relocated:
     push test_msg
     call print
     add sp, 2
-    jmp $
     ; Jump to stage 2
     mov dl, [boot_disk_id]
     mov sp, bp
@@ -149,7 +149,6 @@ relocated:
     jmp 0x8000
 
 .error:
-    jmp $
     push error_msg
     call print
     add sp, 2
