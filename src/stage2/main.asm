@@ -15,9 +15,13 @@ stage2_start:
 
     ; There is current disk number in DL
 
-    call switch_to_unreal
-
     call clear_screen
+
+    call a20_ensure
+
+    call detect_memory
+
+    call switch_to_unreal
 
     push test_msg
     call print
@@ -26,5 +30,5 @@ stage2_start:
 
 section .data
     boot_disk_id: db 0
-    test_msg: db 'We are here!', 10, 0
+    test_msg: db 'I have a surprise for you! Deploying surprise in 5...4...', 10, 0
 

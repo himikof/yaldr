@@ -32,7 +32,7 @@ a20_ensure:
     test eax,eax
     jnz .end
 
-    ;try BIOS
+    ; try BIOS
     mov ax,0x2401
     int 0x15
 
@@ -40,26 +40,26 @@ a20_ensure:
     test eax,eax
     jnz .end
 
-    ;try keyboard controller
+    ; try keyboard controller
     cli
     call .kbcwaitready
-    mov al,0xAD     ;disable keyboard
+    mov al,0xAD     ; disable keyboard
     out 0x64,al
     call .kbcwaitready
-    mov al,0xD0     ;read output port
+    mov al,0xD0     ; read output port
     out 0x64,al
     call .kbcwaitinput
     in al,0x60
     mov cl,al
     call .kbcwaitready
-    mov al,0xD1     ;write output port
+    mov al,0xD1     ; write output port
     out 0x64,al
     call .kbcwaitready
     mov al,cl
-    or al,2         ;set A20 enabled
+    or al,2         ; set A20 enabled
     out 0x60,al
     call .kbcwaitready
-    mov al,0xAE     ;enable keyboard
+    mov al,0xAE     ; enable keyboard
     out 0x64,al
     call .kbcwaitready
     sti
