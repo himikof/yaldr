@@ -17,8 +17,8 @@ a20_test:
     mov di,0x510
     mov bl,[ds:si]
     mov bh,[es:di]
-    mov [ds:si],0x01
-    mov [es:di],0x00
+    mov byte [ds:si],0x01
+    mov byte [es:di],0x00
     xor eax,eax
     mov al,[ds:si]
 .end:
@@ -49,13 +49,15 @@ a20_ensure:
     mov al,0xD0     ;read output port
     out 0x64,al
     call .kbcwaitinput
-    in cl,0x60
+    in al,0x60
+    mov cl,al
     call .kbcwaitready
     mov al,0xD1     ;write output port
     out 0x64,al
     call .kbcwaitready
-    or cl,2         ;set A20 enabled
-    out 0x60,cl
+    mov al,cl
+    or al,2         ;set A20 enabled
+    out 0x60,al
     call .kbcwaitready
     mov al,0xAE     ;enable keyboard
     out 0x64,al
