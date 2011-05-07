@@ -9,6 +9,9 @@ MEMORY
 
 SECTIONS
 {
+    .text.head : {
+        *(.text.head)
+    }
     .text : {
         *(.text)
     }

@@ -1,3 +1,4 @@
+; Stage1 debug utils
 ; asmsyntax=nasm
 
 bits 16

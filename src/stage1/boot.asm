@@ -146,7 +146,7 @@ relocated:
     mov dl, [boot_disk_id]
     mov sp, bp
     pop es
-    jmp 0x8000
+    jmp 0:0x8000
 
 .error:
     push error_msg
