@@ -1,6 +1,7 @@
 ; CPU mode switching
 ; asmsyntax=nasm
 
+bits 16
 section .text
 
 ; This function returns manually
@@ -13,6 +14,8 @@ switch_to_protected:
     mov eax, cr0
     or al, 1
     mov cr0, eax
+    jmp .start_pm
+.start_pm:
     ; We are in the protected mode now
     mov cx, 0x8
     mov ds, cx
@@ -25,19 +28,21 @@ switch_to_protected:
 
 global switch_to_unreal
 switch_to_unreal:
+    cli
     push ds
     push es
     push fs
     push gs
     mov bx, ss
-    cli
     lgdt [gdtr]
     mov eax, cr0
     or al, 1
     mov cr0, eax
+    jmp .start_pm
+.start_pm:
     ; We are in the protected mode now
     ; Load segments
-    mov cx, 0x8
+    mov cx, 0x08
     mov ds, cx
     mov es, cx
     mov fs, cx
@@ -46,6 +51,8 @@ switch_to_unreal:
     ; Disable protected mode
     and al, 0xFE
     mov cr0, eax
+    jmp .end_pm
+.end_pm:
     mov ss, bx
     pop gs
     pop fs
@@ -54,9 +61,10 @@ switch_to_unreal:
     sti
     ret
 
+
 section .data
 gdtr:
-    dw gdt.end - $ + 1
+    dw gdt.end - gdt
     dd gdt
 gdt:
     ; NULL entry (also the descriptor)

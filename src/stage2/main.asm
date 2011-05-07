@@ -17,9 +17,10 @@ stage2_start:
     push test_msg
     call print
 
-    jmp $
-
     call switch_to_unreal
+
+    push test_msg
+    call print
 
     jmp $
 
