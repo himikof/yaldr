@@ -19,11 +19,14 @@ detect_memory:
     mov di,0
 
     .get:
+        mov [di],dword 24
+        add di,4
         mov [es:di+20],dword 1  ; pre-ACPI 3.0 compatibility
         mov edx,0x534D4150
         mov ecx,24
         mov eax,0xE820
         int 0x15
+        sub di,4
         cmp eax,0x534D4150
         jne .get.end
         jc .get.end
@@ -38,7 +41,7 @@ detect_memory:
         and ecx,1
         jz .get.next
 
-        add di,24
+        add di,24+4
 
     .get.next:
         test ebx,ebx
@@ -50,34 +53,34 @@ detect_memory:
     jz error_got_nothing
 
     ; Gnome sort
-    mov si,24
-    mov bx,24+24
+    mov si,28
+    mov bx,28+28
     .sort:
         cmp si,di
         jae .sort.end
 
-        mov ecx,[es:si+4]   ;- if a[i] < a[i-1]: swap
+        mov ecx,[es:si+8]   ;- if a[i] < a[i-1]: swap
         mov edx,[es:si-20]  ;|
         cmp ecx,edx         ;|
         jb .sort.swap       ;|
-        mov ecx,[es:si]     ;|
+        mov ecx,[es:si+4]   ;|
         mov edx,[es:si-24]  ;|
         jb .sort.swap       ;/
         jmp .sort.forward
     .sort.swap:
         %assign i 0
-        %rep 6
+        %rep 7
             mov ecx,[es:si+0+i*4]
-            mov edx,[es:si-24+i*4]
+            mov edx,[es:si-28+i*4]
             mov [es:si+0+i*4],edx
-            mov [es:si-24+i*4],ecx
+            mov [es:si-28+i*4],ecx
             %assign i i+1
         %endrep
-        sub si,24
+        sub si,28
         jnz .sort   ;- if i==0: i, j = j, j+1
     .sort.forward:  ;|
         mov si,bx   ;|
-        add bx,24   ;/
+        add bx,28   ;/
         jmp .sort
     .sort.end:
 
