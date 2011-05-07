@@ -4,7 +4,7 @@
 
 bits 16
 
-videomem equ 0xb800
+videomem equ 0xb8000
 cols equ 80
 rows equ 25
 port_crt_index equ 0x03d4
@@ -45,14 +45,10 @@ putc:
     jmp .end
 .simple:
     mov ch, 0x07 ; attributes
-    push es
-    mov ax, videomem
-    mov es, ax
     movzx eax, word [cursor]
-    mov word [es:2*eax], cx
+    mov word [videomem + 2*eax], cx
     inc ax
     mov [cursor], ax
-    pop es
 .end:
     cmp word [cursor], cols * rows - 1
     jne .ret
@@ -64,18 +60,18 @@ putc:
 
 global clear_screen
 clear_screen:
-    push es
-    mov ax, videomem
-    mov es, ax
     push di
+    push es
+    mov ax, videomem >> 4
+    mov es, ax
     xor di, di
     mov cx, cols * rows
     mov ax, 0x0720
     rep stosw
     mov word [cursor], 0
     call sync_cursor
-    pop di
     pop es
+    pop di
     ret
 
 sync_cursor:
