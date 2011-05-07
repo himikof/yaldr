@@ -3,11 +3,13 @@
 
 BITS 16
 
+; Segment 0x1000 (64 KB) is internal allocator memory
 
-global memdetect
+
+global detect_memory
 
 section .text
-memdetect:
+detect_memory:
     xor ebx,ebx
     mov di,memtable
 

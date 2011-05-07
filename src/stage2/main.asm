@@ -1,6 +1,7 @@
 ; Stage2 code
 ; asmsyntax=nasm
 
+%include "asm/stage2_common.inc"
 
 bits 16
 section .text
@@ -10,6 +11,8 @@ global stage2_start
 stage2_start:
 
     ; There is current disk number in DL
+
+    call switch_to_unreal
 
     jmp $
 
