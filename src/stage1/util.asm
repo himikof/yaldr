@@ -35,7 +35,7 @@ putc:
     xor edx, edx
     div ch
     inc ax
-    mul bh
+    mul ch
     mov [cursor], ax
     jmp .end
 .simple:

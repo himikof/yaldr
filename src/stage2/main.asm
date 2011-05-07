@@ -14,10 +14,10 @@ stage2_start:
 
     call clear_screen
 
-    jmp $
-
     push test_msg
     call print
+
+    jmp $
 
     call switch_to_unreal
 
@@ -25,5 +25,5 @@ stage2_start:
 
 section .data
     boot_disk_id: db 0
-    test_msg: db 'We are here!', 0
+    test_msg: db 'We are here!', 10, 0
 
