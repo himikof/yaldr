@@ -3,7 +3,8 @@
 
 %include "asm/stage2_common.inc"
 
-bits 16
+BITS 16
+
 section .text.head
 
 ; Will be at 0x8000

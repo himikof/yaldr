@@ -2,7 +2,7 @@
 ; asmsyntax=nasm
 
 
-bits 16
+BITS 16
 
 videomem equ 0xb8000
 cols equ 80
