@@ -21,7 +21,7 @@ print:
     call putc
     add sp, 2
     jmp .repeat
-.end
+.end:
     pop si
     ret
 

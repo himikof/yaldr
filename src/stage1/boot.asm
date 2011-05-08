@@ -54,7 +54,7 @@ relocated:
     jz .load_from_floppy
     ; Start loading stage2 from hdd
     sub sp, 16
-    disk_packet equ esp       ; 16 bytes
+%define    disk_packet esp       ; 16 bytes
     mov bx, [stage2_size]
     ; Construct a disk_packet_t on stack
     push bp

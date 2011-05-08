@@ -24,8 +24,9 @@ switch_to_protected:
     mov fs, cx
     mov gs, cx
     mov ss, cx
-    jmp 0x10:ebx
-
+    jmp 0x10:.new_cs
+.new_cs:
+    jmp ebx
 
 global switch_to_unreal
 switch_to_unreal:

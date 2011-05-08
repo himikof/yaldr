@@ -9,11 +9,11 @@ DEPENDS_ON_NO_BUILD = $(eval _NO_RULES := T)$(call _INCLUDE,$1)$(eval _NO_RULES 
 # To be overwritten by command line
 ARCH = x86
 CFLAGS = -g -O2 -Wall
-ASFLAGS = -g dwarf2
+ASFLAGS = -g -F dwarf
 LDFLAGS =
 
 AS = gcc
-ASM = yasm
+ASM = nasm
 CC = gcc
 CXX = g++
 AR = ar
@@ -69,13 +69,13 @@ ifneq ($(findstring s,$(MAKEFLAGS)),)
 endif
 
 ALL_CFLAGS = $(CFLAGS)
-ALL_ASFLAGS = $(ASFLAGS) -f elf32
+ALL_ASFLAGS = -f elf $(ASFLAGS)
 ALL_LDFLAGS = $(LDFLAGS)
 
 ALL_CFLAGS += -fno-stack-protector
 
 INCLUDE_DIRS_C := $(_ROOT)/include
-INCLUDE_DIRS_ASM := $(_ROOT)/include
+INCLUDE_DIRS_ASM := $(_ROOT)/include/
 
 #include $(_ROOT)/arch/$(ARCH)/config.mk
 

@@ -33,7 +33,7 @@ add_all_library = $(eval $(_MODULE_NAME)_all_TDEPS := $(addsuffix _all,$(addpref
 add_custom = $(call add_target,CUSTOM,$(1),$(2))
 
 c_include = $(addprefix -I ,$(1))
-asm_include = $(c_include)
+asm_include = $(addprefix -I,$(1))
 
 local_target = $(_MODULE_NAME)_$(1)
 local_src = $(subst $(_ROOT)/,,$(abspath $(1)))
