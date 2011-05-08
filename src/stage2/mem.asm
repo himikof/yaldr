@@ -110,6 +110,8 @@ done:
     mov ebx,eax
     and ebx,0xFFFF0000
     clc
+    add eax,0x10000
+    mov [mem_map],eax
     jz exit
     stc
 exit:
@@ -118,4 +120,6 @@ exit:
     ret
 
 section .data
+    global mem_map
+    mem_map: dd 0
     error_msg: db 'Unable to detect memory', 10, 0
