@@ -1,4 +1,4 @@
-; Memory detection (not tested yet)
+; Memory detection
 ; asmsyntax=nasm
 
 %include "asm/output.inc"

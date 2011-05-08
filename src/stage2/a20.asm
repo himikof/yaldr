@@ -1,4 +1,4 @@
-; A20 (not tested yet)
+; A20
 ; asmsyntax=nasm
 
 BITS 16
