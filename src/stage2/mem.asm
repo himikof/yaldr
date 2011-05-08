@@ -18,6 +18,7 @@ section .text
 ; CF is set in case of failure (empty memort map).
 global detect_memory
 detect_memory:
+    record_size equ 28
     push ds
     push es
     mov ax,0x1000
@@ -27,7 +28,7 @@ detect_memory:
     mov di,0
 
     .get:
-        mov [di],dword 24
+        mov [di],dword record_size-4
         add di,4
         mov [es:di+20],dword 1  ; pre-ACPI 3.0 compatibility
         mov edx,0x534D4150
@@ -49,20 +50,24 @@ detect_memory:
         and ecx,1
         jz .get.next
 
-        add di,24+4
+        add di,record_size
 
     .get.next:
         test ebx,ebx
         jz .get.end
+        cmp di,record_size*128  ;- just read 128-th record, ignore remaining
+        jae .get.end            ;/
+
         jmp .get
+
     .get.end:
 
     and edi,0xFFFF
     jz .error_got_nothing
 
     ; Gnome sort
-    mov si,28
-    mov bx,28+28
+    mov si,record_size
+    mov bx,record_size+record_size
     .sort:
         cmp si,di
         jae .sort.end
@@ -77,18 +82,18 @@ detect_memory:
         jmp .sort.forward
     .sort.swap:
         %assign i 0
-        %rep 7
+        %rep record_size/4
             mov ecx,[es:si+0+i*4]
-            mov edx,[es:si-28+i*4]
+            mov edx,[es:si-record_size+i*4]
             mov [es:si+0+i*4],edx
-            mov [es:si-28+i*4],ecx
+            mov [es:si-record_size+i*4],ecx
             %assign i i+1
         %endrep
-        sub si,28
-        jnz .sort   ;- if i==0: i, j = j, j+1
-    .sort.forward:  ;|
-        mov si,bx   ;|
-        add bx,28   ;/
+        sub si,record_size
+        jnz .sort           ;- if i==0: i, j = j, j+1
+    .sort.forward:          ;|
+        mov si,bx           ;|
+        add bx,record_size  ;/
         jmp .sort
     .sort.end:
 
@@ -98,7 +103,7 @@ detect_memory:
 .error_got_nothing:
     push error_msg
     call print
-    add sp, 2
+    add sp,2
     jmp .done
 
 
@@ -118,10 +123,10 @@ detect_memory:
     add eax,0x10000
     stc
     and ebx,0xFFFF0000
-    jnz exit
+    jnz .exit
     clc
     mov [ds:mem_map_start],eax
-exit:
+.exit:
     pop es
     pop ds
     ret
