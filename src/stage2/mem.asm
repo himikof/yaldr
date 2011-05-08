@@ -34,12 +34,12 @@ detect_memory:
         jc .get.end
 
         ; if length==0: skip
-        mov ecx,[es:di+8]
-        or ecx,[es:di+12]
+        mov ecx,[es:di+8+4]
+        or ecx,[es:di+12+4]
         jz .get.next
 
         ; if ACPI.noignore==0: skip
-        mov ecx,[es:di+20]
+        mov ecx,[es:di+20+4]
         and ecx,1
         jz .get.next
 
@@ -105,15 +105,16 @@ done:
     rep movsb
     cld
     xor eax,eax
+    mov ds,ax
     mov ax,di
     add eax,1
     mov ebx,eax
-    and ebx,0xFFFF0000
-    clc
     add eax,0x10000
-    mov [mem_map],eax
-    jz exit
     stc
+    and ebx,0xFFFF0000
+    jnz exit
+    clc
+    mov [ds:mem_map],eax
 exit:
     pop es
     pop ds
