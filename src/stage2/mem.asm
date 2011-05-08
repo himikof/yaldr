@@ -6,10 +6,16 @@
 BITS 16
 
 ; Segment 0x1000 (64 KB) is internal allocator memory
-
+; Map:
+;       
+;       0x1dfff-0x1ffff - memory map (8 KB)
 
 section .text
 
+; Detects available memory, fills memory map table.
+; No arguments.
+; Returns a pointer to memory map start. Memory map end is at MEMORY_MAP_END.
+; CF is set in case of failure (empty memort map).
 global detect_memory
 detect_memory:
     push ds
@@ -52,7 +58,7 @@ detect_memory:
     .get.end:
 
     and edi,0xFFFF
-    jz error_got_nothing
+    jz .error_got_nothing
 
     ; Gnome sort
     mov si,28
@@ -86,17 +92,17 @@ detect_memory:
         jmp .sort
     .sort.end:
 
-    jmp done
+    jmp .done
 
 
-error_got_nothing:
+.error_got_nothing:
     push error_msg
     call print
     add sp, 2
-    jmp done
+    jmp .done
 
 
-done:
+.done:
     mov cx,di
     mov si,di
     dec si
@@ -114,13 +120,13 @@ done:
     and ebx,0xFFFF0000
     jnz exit
     clc
-    mov [ds:mem_map],eax
+    mov [ds:mem_map_start],eax
 exit:
     pop es
     pop ds
     ret
 
 section .data
-    global mem_map
-    mem_map: dd 0
+    global mem_map_start
+    mem_map_start: dd 0
     error_msg: db 'Unable to detect memory', 10, 0
