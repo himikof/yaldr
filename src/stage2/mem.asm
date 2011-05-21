@@ -10,6 +10,23 @@ BITS 16
 ;       
 ;       0x1dfff-0x1ffff - memory map (8 KB)
 
+; Memory chunk
+struc mchunk_t
+    .prev_size resd 1   ; size of the previous chunk,
+                        ;   used only if previous chunk is free
+    .size resd 1        ; size of this chunk, except for two lowest bits
+                        ;   bit 1: 1 if this chunk is used
+                        ;   bit 0: 1 if previous chunk is used
+    .next resd 1        ; pointer to the next chunk in the list
+                        ;   used only if this chunk is free
+    .prev resd 1        ; pointer to the previous chunk in the list
+                        ;   used only if this chunk is free                        
+endstruc
+
+CHUNK_OVERHEAD equ 4
+SMALL_SHIFT equ 3
+LARGE_SHIFT equ 8
+
 section .text
 
 ; Detects available memory, fills memory map table.
