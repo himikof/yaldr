@@ -51,44 +51,76 @@ relocated:
     mov dl, [boot_disk_id]
 .drive_determined:
     test dl, 0x80
-    jz .load_from_floppy
-    ; Start loading stage2 from hdd
+    jz .l1
+        mov edx, .hd_load_sector
+        jmp .l2
+    .l1:
+        mov edx, .fd_load_sector
+    .l2:
+    ; Generic load code
+    ;  edx == function ptr
+    dec word [stage2_size]
+    xor esi, esi ; loaded sectors count
+    ; Set buffer ptr
+    mov ax, 0x0800
+    mov es, ax
+    xor bx, bx
+    mov eax, [stage2_block]
+    push edx
+    call [edx]
+    pop edx
+    ; Update buffer ptr
+    mov ax, es
+    add ax, 0x20
+    mov es, ax
+    BLOCK_TABLE equ 0x8100
+    .load_loop:
+        cmp si, [stage2_size]
+        je .stage2_ready
+        mov eax, [BLOCK_TABLE + 4 * esi]
+        push edx
+        call [edx]
+        pop edx
+        ; Update buffer ptr
+        mov ax, es
+        add ax, 0x20
+        mov es, ax
+        inc si
+    jmp .load_loop
+
+.hd_load_sector:
+    ; eax == LBA to load
+    ; es:bx == buffer ptr
+    push si
     sub sp, 16
 %define    disk_packet esp       ; 16 bytes
-    mov bx, [stage2_size]
     ; Construct a disk_packet_t on stack
     push bp
     lea bp, [disk_packet]
     mov byte [bp + disk_packet_t.size], 16
     mov byte [bp + disk_packet_t.pd1], 0
-    mov ax, bx
-    and ax, 0x003F ; read 64 sectors at once
-    mov [bp + disk_packet_t.sectors], ax
-    mov word [bp + disk_packet_t.buf_offset], 0
-    mov word [bp + disk_packet_t.buf_segment], 0x0800
-    mov eax, [stage2_block]
+    mov word [bp + disk_packet_t.sectors], 1
+    mov word [bp + disk_packet_t.buf_offset], bx
+    mov word [bp + disk_packet_t.buf_segment], es
     mov [bp + disk_packet_t.start_lba], eax
     mov dword [bp + disk_packet_t.upper_lba], 0
     lea si, [bp]
     pop bp
-    ; Actual stage2 load
-.hd_load_loop:
+    ; Actual sector load
     mov ah, 0x42
     int 0x13
     jc .error
-    sub bx, [disk_packet + disk_packet_t.sectors]
-    jz .stage2_ready
-    mov ax, bx
-    and ax, 0x003F
-    mov [disk_packet + disk_packet_t.sectors], ax
-    jmp .hd_load_loop
-
-.load_from_floppy:
-    push dx
+    mov ax, [disk_packet + disk_packet_t.sectors]
+    add sp, 16
+    pop si
+    ret
+    
+.fd_load_sector:
+    ; eax == LBA to load
+    ; es:bx == buffer ptr
     sectorsPerTrack equ 18
-    numberOfHeads equ 2
-    mov eax, [stage2_block]
-    mov si, [stage2_size]
+    push bx
+    push dx
     xor dx, dx
     mov bx, sectorsPerTrack
     div bx
@@ -104,41 +136,14 @@ relocated:
     ; Now ch == Cylinder
     pop ax
     mov dl, al
-    ; Set buffer ptr
-    mov ax, 0x0800
-    mov es, ax
-    xor bx, bx
-    mov al, sectorsPerTrack + 1
-    sub al, cl ; read the rest of the first track
-    xor ah, ah
-    cmp ax, si
-    jbe .fd_load_loop
-    mov ax, si
-    
-.fd_load_loop:
-    mov di, ax
+    pop bx
+    mov al, 1 ; Read 1 sector
     mov ah, 0x02
     int 0x13
     jc .error
-    xor ah, ah
-    sub si, ax
-    jz .stage2_ready
-    ; Update CHS
-    mov cl, 1 ; S = 1
-    btc dx, 8 ; Invert H
-    adc ch, 0 ; Increment C, if needed
-    ; Update buffer ptr
-    shl ax, 5
-    mov bx, es
-    add bx, ax
-    mov es, bx
-    xor bx, bx
-    mov ax, sectorsPerTrack
-    cmp ax, si
-    jae .fd_load_loop
-    mov ax, si
-    jmp .fd_load_loop
-    
+    xor ah, ah    
+    ret
+
 .stage2_ready:
     push test_msg
     call print
