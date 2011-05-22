@@ -10,7 +10,7 @@ BITS 16
 
 section .text.head
 
-; Will be at 0x8000
+; Will be at 0x8000, max size 256 bytes
 global stage2_start
 stage2_start:
 
@@ -28,6 +28,14 @@ stage2_start:
     call print
 
     jmp $
+
+section .data.head
+
+; Will be at 0x8100, max size 256 bytes
+; TO BE PATCHED IN
+; An array of stage2 32-bit LBAs (except the first), maximum 32
+stage2_blocks:
+    times 32 db 0xDE, 0xAD, 0xBE, 0xEF
 
 section .text
 
