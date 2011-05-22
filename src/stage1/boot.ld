@@ -4,7 +4,7 @@ ENTRY(stage1_start)
 
 MEMORY
 {
-    MBR (rwx) : org = 0x7c00, len = 0x0200
+    MBR (rwx) : org = 0x7e00, len = 0x0200
 }
 
 SECTIONS

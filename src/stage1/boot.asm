@@ -52,10 +52,10 @@ relocated:
 .drive_determined:
     test dl, 0x80
     jz .l1
-        mov edx, .hd_load_sector
+        mov bx, .hd_load_sector
         jmp .l2
     .l1:
-        mov edx, .fd_load_sector
+        mov bx, .fd_load_sector
     .l2:
     ; Generic load code
     ;  edx == function ptr
@@ -64,11 +64,11 @@ relocated:
     ; Set buffer ptr
     mov ax, 0x0800
     mov es, ax
-    xor bx, bx
+    xor cx, cx
     mov eax, [stage2_block]
-    push edx
-    call [edx]
-    pop edx
+    push bx
+    call bx
+    pop bx
     ; Update buffer ptr
     mov ax, es
     add ax, 0x20
@@ -78,9 +78,9 @@ relocated:
         cmp si, [stage2_size]
         je .stage2_ready
         mov eax, [BLOCK_TABLE + 4 * esi]
-        push edx
-        call [edx]
-        pop edx
+        push bx
+        call bx
+        pop bx
         ; Update buffer ptr
         mov ax, es
         add ax, 0x20
@@ -90,7 +90,9 @@ relocated:
 
 .hd_load_sector:
     ; eax == LBA to load
-    ; es:bx == buffer ptr
+    ; es:cx == buffer ptr
+    ; dl == drive
+    ; must preserve bx
     push si
     sub sp, 16
 %define    disk_packet esp       ; 16 bytes
@@ -100,7 +102,7 @@ relocated:
     mov byte [bp + disk_packet_t.size], 16
     mov byte [bp + disk_packet_t.pd1], 0
     mov word [bp + disk_packet_t.sectors], 1
-    mov word [bp + disk_packet_t.buf_offset], bx
+    mov word [bp + disk_packet_t.buf_offset], cx
     mov word [bp + disk_packet_t.buf_segment], es
     mov [bp + disk_packet_t.start_lba], eax
     mov dword [bp + disk_packet_t.upper_lba], 0
@@ -117,13 +119,16 @@ relocated:
     
 .fd_load_sector:
     ; eax == LBA to load
-    ; es:bx == buffer ptr
+    ; es:cx == buffer ptr
+    ; dl == drive
+    ; must preserve bx
     sectorsPerTrack equ 18
     push bx
+    push cx
     push dx
     xor dx, dx
-    mov bx, sectorsPerTrack
-    div bx
+    mov cx, sectorsPerTrack
+    div cx
     inc dl
     mov cl, dl
     ; Now cl == Sector
@@ -141,7 +146,9 @@ relocated:
     mov ah, 0x02
     int 0x13
     jc .error
-    xor ah, ah    
+    mov cx, bx
+    xor ah, ah
+    pop bx
     ret
 
 .stage2_ready:
