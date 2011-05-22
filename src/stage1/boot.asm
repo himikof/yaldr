@@ -3,7 +3,7 @@
 
 %define STAGE1
 
-%include "asm/disk.inc"
+%include "asm/disk_private.inc"
 %include "asm/stage1/util.inc"
 
 BITS 16

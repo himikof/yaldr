@@ -2,7 +2,7 @@
 ; asmsyntax=nasm
 
 %include "asm/output.inc"
-%include "asm/disk.inc"
+%include "asm/disk_private.inc"
 
 BITS 16
 
