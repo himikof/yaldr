@@ -24,7 +24,7 @@ for i in `seq 0 $(($BLOCKS_COUNT-1))`; do
 
     START=$(($BLOCK_N * $FRAC))
     for k in `seq 0 $(($FRAC-1))`; do
-        echo -n $(($START + 512 * $k)) ''
+        echo -n $(($START + $k)) ''
     done
 done
 
