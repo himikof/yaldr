@@ -1,6 +1,8 @@
 ; Stage1 debug utils
 ; asmsyntax=nasm
 
+%define STAGE1
+
 BITS 16
 
 videomem equ 0xb800

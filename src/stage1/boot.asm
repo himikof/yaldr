@@ -1,6 +1,8 @@
 ; Stage1 boot code
 ; asmsyntax=nasm
 
+%define STAGE1
+
 %include "asm/disk.inc"
 %include "asm/stage1/util.inc"
 
