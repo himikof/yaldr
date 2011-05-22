@@ -5,10 +5,10 @@ int main(int argc, char** argv)
 {
     if (argc < 2)
     {
-        fprintf(stderr, "Usage: s2patch stage2 output block*\n");
+        fprintf(stderr, "Usage: s2patch stage2 block*\n");
         return 1;
     }
-    FILE* stage2 = fopen(argv[1], "rb");
+    FILE* stage2 = fopen(argv[1], "r+b");
     if (!stage2)
     {
         fprintf(stderr, "Cannot open stage2\n");
@@ -28,27 +28,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    FILE* output = fopen(argv[2], "wb");
-    rewind(stage2);
-    char buffer[4096];
-     
-    while ((rv = fread(buffer, 1, sizeof(buffer), stage2)) > 0) 
-    {
-        if ((rv = fwrite(buffer, 1, rv, output)) < 0)
-        {
-            fprintf(stderr, "output write failed\n");
-            return 1;
-        }
-    }
-    if (rv == -1)
-    {
-        fprintf(stderr, "stage2 read failed\n");
-        return 1;
-    }
-    
-    fclose(stage2);
-    
-    unsigned char block_num = argc - 3;
+    unsigned char block_num = argc - 2;
     if (block_num > 32)
     {
         fprintf(stderr, "Too many blocks: %d, max 32 \n", block_num);
@@ -61,7 +41,7 @@ int main(int argc, char** argv)
     {
 
         char* endptr;
-        blocks[i] = strtol(argv[3 + i], &endptr, 10);
+        blocks[i] = strtol(argv[2 + i], &endptr, 10);
         if (*endptr != '\0')
         {
             fprintf(stderr, "Invalid block at position %d: should be decimal block number\n", i);
@@ -69,13 +49,13 @@ int main(int argc, char** argv)
         }
     } 
 
-    fseek(output, 0x100, SEEK_SET);
+    fseek(stage2, 0x100, SEEK_SET);
     for (i = 0; i < block_num; ++i)
     {
-        rv = fwrite(blocks + i, 4, 1, output);
+        rv = fwrite(blocks + i, 4, 1, stage2);
     }
     
 
-    fclose(output);
+    fclose(stage2);
     return 0;
 }
