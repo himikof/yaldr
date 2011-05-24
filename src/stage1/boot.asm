@@ -28,7 +28,7 @@ stage1_start:
     mov sp, 0x0900
 
     ; Save DL
-    mov [boot_disk_id], dl
+    mov [boot_disk_id - 512], dl
 
     ; Relocate self to 0x7E00
     mov si, 0x7c00

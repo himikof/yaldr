@@ -93,7 +93,7 @@ fd_load_sectors:
     pop es
     ret
 
- hd_load_sectors:
+hd_load_sectors:
     push si
     sub sp, 16
 %define    disk_packet esp       ; 16 bytes
@@ -126,7 +126,7 @@ fd_load_sectors:
         jc .error
         mov ax, [disk_packet + disk_packet_t.sectors]
         mov cx, ax
-        shr cx, 5
+        shl cx, 5
         add word [disk_packet + disk_packet_t.buf_segment], cx
         add word [disk_packet + disk_packet_t.start_lba], ax
         cwde
