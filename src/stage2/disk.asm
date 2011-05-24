@@ -95,7 +95,7 @@ fd_load_sectors:
 
 hd_load_sectors:
     push si
-    sub sp, 16
+    sub sp, disk_packet_t_size
 %define    disk_packet esp       ; 16 bytes
     ; Construct a disk_packet_t on stack
     push bp

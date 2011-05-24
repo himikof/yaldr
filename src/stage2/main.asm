@@ -19,8 +19,7 @@ stage2_start:
     call a20_ensure
     test eax,eax
     jnz .a20_ok
-    push a20_failed_msg
-    call print
+    printline 'Could not enable A20'
     call loader_panic
 .a20_ok:
 
@@ -30,12 +29,10 @@ stage2_start:
 
     call detect_memory
 
-    push exec_msg
-    call print
+    printline 'I have a surprise for you! Deploying surprise in 5...'
     mov esi,20
     call sleep
-    push exec_msg2
-    call print
+    printline '4...', 10
     mov esi,20
     call sleep
 
@@ -92,7 +89,4 @@ sleep:
 section .data
     boot_disk_id: db 0
 
-    a20_failed_msg: db 'Could not enable A20', 10, 0
-    exec_msg: db 'I have a surprise for you! Deploying surprise in 5...', 0
-    exec_msg2: db '4...', 10, 0
     panic_msg: db 'Loader panic, stopping here', 10, 0
