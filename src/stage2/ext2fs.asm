@@ -64,6 +64,7 @@ endstruc
 ;;
 
 %define EXT2_ROOT_INO 2
+%define EXT2_DELIM '/'
 
 
 section .text
@@ -179,10 +180,49 @@ ext2_openfile:
     mov ebp,esp
 %define fshandle ebp + 4
 %define filename ebp + 8
+%define len ebp + 12
+    add esp,8
+%define inode ebp - 4
+%define fnamelen ebp - 8
     mov edi,[fshandle]
-    mov eax,EXT2_ROOT_INO
-    
-
+    mov esi,[filename]
+    mov eax,[len]
+    mov [fnamelen],eax
+    mov dword [inode],EXT2_ROOT_INO
+    xor eax,eax
+    .loop1:
+        cmp dword [fnamelen],0
+        jz .loop1.end
+        xor ecx,ecx
+        .loop2:
+            mov al,[esi + ecx]
+            cmp al,EXT2_DELIM
+            je .loop2.end
+            inc ecx
+            cmp ecx,[fnamelen]
+            je .loop2.end
+            jmp .loop2
+        .loop2.end:
+        mov eax,[inode]
+        push ecx
+        push esi
+        call ext2_findfileindir
+        mov ecx,[esp + 4]
+        add esp,8
+        test eax,eax
+        jz .notfound
+        mov [inode],eax
+        inc ecx
+        add esi,ecx
+        sub [fnamelen],ecx
+        jmp .loop1
+    .loop1.end:
+    mov eax,[inode]
+    jmp .exit
+.notfound:
+    xor eax,eax
+    printline 'File not found', 10
+.exit:
     leave
     ret
 
@@ -262,8 +302,13 @@ ext2_loadinode:
 ext2_findfileindir:
     push ebp
     mov ebp,esp
+    push esi
 %define filename ebp + 4
 %define len ebp + 8
+    cmp dword [len],0
+    jne .nontriv
+    jmp .exit
+.nontriv:
     add esp,ext2i_i_size
 %define inode ebp - ext2i_i_size
     lea esi,[inode]
@@ -299,6 +344,7 @@ ext2_findfileindir:
 .gotit:
     mov eax,[esi + ext2i_de.inode]
 .exit:
+    pop esi
     leave
     ret
 
