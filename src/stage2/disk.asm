@@ -70,6 +70,7 @@ read_sectors:
 
 fd_load_sectors:
     push es
+    push edi
     sectorsPerTrack equ 18
     mov edi, INPUT_BUFFER
     mov eax, edi
@@ -130,6 +131,7 @@ fd_load_sectors:
     xor eax, eax
     not eax
 .epilogue:
+    pop edi
     pop es
     ret
 
