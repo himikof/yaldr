@@ -28,6 +28,7 @@ stage2_start:
     call clear_screen
 
     call detect_memory
+    call init_alloc
 
     printline 'I have a surprise for you! Deploying surprise in 5...'
     mov esi,20

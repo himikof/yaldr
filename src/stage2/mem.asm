@@ -1,6 +1,7 @@
 ; Memory detection
 ; asmsyntax=nasm
 
+%include "asm/mem_private.inc"
 %include "asm/output.inc"
 
 BITS 16
@@ -13,11 +14,17 @@ BITS 16
 
 GLOBAL_MSPACE equ 0x10000
 
+%ifdef MALLOC_PREFIX
+%define %[MALLOC_PREFIX]malloc malloc
+%define %[MALLOC_PREFIX]free free
+%define %[MALLOC_PREFIX]init_alloc init_alloc
+%endif
+
 struc mem_map_t
     .entry_size: resd 1 ; size of this structure
     .base: resq 1       ; memory region base address
     .length: resq 1     ; memory region length
-    .type: resd 1       ; memory region type
+    .type: resd 1       ; memory region type (1 is RAM)
     .extended: resd 1   ; memory region extended attributes
 endstruc
 
@@ -92,6 +99,38 @@ MAX_SMALL_REQUEST equ MAX_SMALL_SIZE - CHUNK_ALIGN_MASK - CHUNK_OVERHEAD
     lea eax, [GLOBAL_MSPACE + mspace_t.smallbins + 2 * %1]
 %endmacro
 
+%macro treebin_at 1
+    lea eax, [GLOBAL_MSPACE + mspace_t.treebins + %1]
+%endmacro
+
+%macro get_tree_index 1
+    %push local
+    push esi
+    mov esi, %1
+    xor eax, eax
+    shr esi, LARGE_SHIFT
+    jz %$end
+    cmp esi, 0xFFFF
+    jbe %$else
+        mov eax, 31
+        jmp %$end
+    %$else:
+        bsr eax, esi
+        push eax
+        mov esi, %1
+        add eax, LARGE_SHIFT - 1
+        bt esi, eax
+        setc al
+        cbw
+        mov si, ax
+        pop eax
+        shl eax, 1
+        add ax, si
+    %$end:
+    pop esi
+    %pop
+%endmacro
+
 ; set_inuse(chunk, size)
 %macro set_inuse 2
     mov eax, [dword %1 + mchunk_t.size]
@@ -161,12 +200,15 @@ MAX_SMALL_REQUEST equ MAX_SMALL_SIZE - CHUNK_ALIGN_MASK - CHUNK_OVERHEAD
 
 section .text
 
+global init_alloc
+global malloc
+global free
+
 ; Initializes the allocator.
 ; No arguments.
 ; Returns 0 in case of success.
 ; Precondition: detect_memory is called.
-global init_alloc
-init_alloc:
+dl_init_alloc:
     mov edx, [mem_map_start]
     test edx, edx
     jnz .l1
@@ -194,19 +236,44 @@ update_dv:
     mov [dword GLOBAL_MSPACE + mspace_t.dvsize], eax
     ret 8
 
+; Allocate large request from the tree.
+; Argument: dword size - aligned size of memory to be allocated.
+; Return value: pointer in case of success, 0 in case of failure.
+treemalloc_large:
+%define FRAME_SIZE 16
+    sub esp, FRAME_SIZE
+%define size esp + FRAME_SIZE + 8
+%define rsize esp + 12    ; 4 bytes
+%define target esp + 8    ; 4 bytes
+%define node esp + 4      ; 4 bytes
+%define right_subtree esp ; 4 bytes
+    mov ecx, [size]  ; the size
+    mov ebx, ecx
+    not ebx
+    mov [rsize], ebx
+    get_tree_index ecx
+    mov ebx, eax
+    treebin_at ebx
+    test eax, eax
+    jz .next_nonempty_bin
+    
+    
+.next_nonempty_bin:
+
+    add esp, FRAME_SIZE
+    ret 
 
 ; Main memory allocation routine.
 ; Argument: dword size - size of memory to be allocated.
 ; Return value: pointer in case of success, 0 in case of failure.
 ; Precondition: init_alloc is called.
-global malloc
-malloc:
+dl_malloc:
     push ebp
     mov ebp, esp
     sub esp, 8
-%define size ebp - 8
-%define nb esp + 4 ; real allocation size, 4 bytes
-%define mem esp    ; allocated memory pointer, 4 bytes 
+%define size ebp + 8
+%define nb ebp - 4  ; real allocation size, 4 bytes
+%define mem ebp - 8 ; allocated memory pointer, 4 bytes
     mov dword [mem], 0
     mov edx, [size]
     cmp edx, MAX_SMALL_REQUEST
@@ -340,9 +407,7 @@ malloc:
 ; Main memory deallocation routine.
 ; Argument: pointer returned by malloc.
 ; No return value.
-
-global free
-free:
+dl_free:
     ret
 
 ; Detects available memory, fills memory map table.
@@ -464,12 +529,101 @@ detect_memory:
     pop ds
     ret
 
+; Main memory allocation routine.
+; Argument: dword size - size of memory to be allocated.
+; Return value: pointer in case of success, 0 in case of failure.
+; Precondition: init_alloc is called.
+test_malloc:
+    push bp
+    mov bp, sp
+%define size bp + 4  ; 4 bytes
+    mov ecx, [test_mem_free]
+    add ecx, dword [size]
+    jo .failure
+    cmp ecx, [test_mem_end]
+    jae .failure
+    mov eax, [test_mem_free]
+    mov [test_mem_free], ecx
+    jmp .epilogue
+.failure:
+    xor eax, eax
+.epilogue:
+    pop bp
+    ret
+
+; Main memory deallocation routine. A noop in this implementation.
+; Argument: pointer returned by malloc.
+; No return value.
+test_free:
+    ret
+
+; Initializes the allocator.
+; No arguments.
+; Returns 0 in case of success.
+; Precondition: detect_memory is called.
+test_init_alloc:
+    push esi
+    mov edx, [mem_map_start]
+    test edx, edx
+    jnz .l1
+        mov eax, 1
+        jmp .epilogue
+    .l1:
+    xor esi, esi  ; High dword
+    xor ecx, ecx  ; Low dword
+    ; ebx == max entry
+    xor ebx, ebx
+    .map_loop:
+        cmp edx, MEMORY_MAP_END
+        jae .end
+        cmp dword [edx + mem_map_t.type], 1
+        jne .continue
+        cmp dword [edx + mem_map_t.base + 4], 0
+        jne .continue
+        cmp dword [edx + mem_map_t.base], 0x100000
+        jb .continue
+        cmp dword [edx + mem_map_t.length + 4], esi
+        ja .size_a
+        jb .size_be
+        cmp dword [edx + mem_map_t.length], ecx
+        ja .size_a
+        .size_be:
+            jmp .continue
+        .size_a:
+            mov esi, dword [edx + mem_map_t.length + 4]
+            mov ecx, dword [edx + mem_map_t.length]
+            mov ebx, edx
+    .continue:
+        add edx, dword [edx + mem_map_t.entry_size]
+        add edx, 4
+        jmp .map_loop
+.end:
+    test ebx, ebx
+    jnz .got_memory
+    mov eax, 2
+    jmp .epilogue
+.got_memory:
+    mov eax, dword [ebx + mem_map_t.base]
+    mov dword [test_mem_base], eax
+    mov dword [test_mem_free], eax
+    xor edx, edx
+    not edx
+    add eax, ecx
+    cmovo eax, edx
+    mov dword [test_mem_end], eax
+.success:
+    xor eax, eax
+.epilogue:
+    pop esi
+    ret
+
 ; memcpy(dest, src, size)
 ; Memory copying. No buffer overlap is permitted.
 ; Argument: dest - pointer to destination
 ; Argument: src - pointer to source
 ; Argument: size - dword, number of bytes to copy
 ; Return value: dest
+global memcpy
 memcpy:
     push edi
     push esi
@@ -498,4 +652,7 @@ rep movsb
 section .data
     global mem_map_start
     mem_map_start: dd 0
+    test_mem_base: dd 0
+    test_mem_free: dd 0
+    test_mem_end: dd 0
     error_msg: db 'Unable to detect memory', 10, 0

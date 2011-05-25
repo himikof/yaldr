@@ -1,7 +1,5 @@
 ; asmsyntax=nasm
 
-MEMORY_MAP_END equ 0x1ffff
-
 extern malloc
 extern free
 extern memcpy
