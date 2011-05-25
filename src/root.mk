@@ -84,6 +84,8 @@ _TN := $(call local_target,$(1))
 $$(_TN)_DISPLAYNAME := $(_MODULE)/$(1)
 $$(_TN)_SRCS = $(addprefix $(_MODULE_PATH),$(2))
 $$(_TN)_OBJS = $(addsuffix $(_OBJ_EXT),$(addprefix $($(_MODULE_NAME)_OUTPUT)/,$(basename $(2))))
+-include $(patsubst %.c,$($(_MODULE_NAME)_OUTPUT)/%.d,$(filter %.c,$(2)))
+-include $(patsubst %.asm,$($(_MODULE_NAME)_OUTPUT)/%.d,$(filter %.asm,$(2)))
 .PHONY: $$(_TN)
 endef
 
