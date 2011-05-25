@@ -464,6 +464,37 @@ detect_memory:
     pop ds
     ret
 
+; memcpy(dest, src, size)
+; Memory copying. No buffer overlap is permitted.
+; Argument: dest - pointer to destination
+; Argument: src - pointer to source
+; Argument: size - dword, number of bytes to copy
+; Return value: dest
+memcpy:
+    push edi
+    push esi
+    mov edi, [esp + 10]
+    mov esi, [esp + 14]
+    mov ecx, [esp + 18]
+    mov edx, ecx
+    mov eax, edi
+    add edx, 0x03
+    and edx, ~0x03
+    sub ecx, edx
+    neg ecx
+rep movsb
+    mov ecx, edx
+    shr ecx, 2
+rep movsd
+    mov ecx, edx
+    and ecx, 0x03
+rep movsb
+.epilogue:
+    pop esi
+    pop edi
+    ret
+
+
 section .data
     global mem_map_start
     mem_map_start: dd 0
