@@ -14,11 +14,14 @@ struc ext2_fsinfo
     .blocks_count: resd 1
     .first_data_block: resd 1
     .log_block_size: resd 1
+    .block_size: resd 1
     .blocks_per_group: resd 1
     .inodes_per_group: resd 1
     .inode_size: resw 1
     .frac: resw 1
     .bgdt: resd 1
+    .cached_itable_group: resd 1
+    .cached_itable: resd 1
 endstruc
 
 ;;
@@ -43,8 +46,24 @@ struc ext2i_bg
     .used_dirs_count: resw 1
     .pad: resw 1
     .reserved: resb 12
+endstruc
+
+%define ext2i_i.blocks 28
+%define ext2i_i.block 40
+%define ext2i_i_size 128
+
+struc ext2i_de
+    .inode: resd 1
+    .rec_len: resw 1
+    .name_len: resb 1
+    .file_type: resb 1
+    .name: resb 0   ; 0-255
+endstruc
+
 ;
 ;;
+
+%define EXT2_ROOT_INO 2
 
 
 section .text
@@ -55,8 +74,9 @@ ext2_openfs:
     mov ebp,esp
 %define disk ebp + 4
 
-    mov ecx,1024
+    push dword 1024
     call malloc
+    add esp,4
     mov esi,eax
 
     mov edx,[disk]
@@ -65,15 +85,17 @@ ext2_openfs:
     push esi
     push edx
     call read_sectors
-    add esp,16
+    pop edx
+    add esp,12
 
     cmp word [esi + ext2i_s.magic],0xEF53
     jne .error_wrongfs
     cmp word [esi + ext2i_s.state],1
     jne .error_notclean
 
-    mov ecx,ext2_fsinfo_size
+    push dword ext2_fsinfo_size
     call malloc
+    add esp,4
     mov edi,eax
     mov [edi + ext2_fsinfo.disk],dx
     mov ecx,[esi + ext2i_s.inodes_count]
@@ -84,12 +106,17 @@ ext2_openfs:
     mov [edi + ext2_fsinfo.first_data_block],ecx
     mov ecx,[esi + ext2i_s.log_block_size]
     mov [edi + ext2_fsinfo.log_block_size],ecx
+    mov eax,1024
+    shl eax,cl
+    mov [edi + ext2_fsinfo.block_size],eax
     mov ecx,[esi + ext2i_s.blocks_per_group]
     mov [edi + ext2_fsinfo.blocks_per_group],ecx
     mov ecx,[esi + ext2i_s.inodes_per_group]
     mov [edi + ext2_fsinfo.inodes_per_group],ecx
     mov cx,[esi + ext2i_s.inode_size]
     mov [edi + ext2_fsinfo.inode_size],cx
+    mov [edi + ext2_fsinfo.cached_itable_group],dword -1
+    mov [edi + ext2_fsinfo.cached_itable],dword 0
 
     mov ebx,1
     add ebx,[edi + ext2_fsinfo.log_block_size]
@@ -122,8 +149,10 @@ ext2_openfs:
     add eax,1
     push eax
     call ext2_readblocks
+    add esp,8
     mov [edi + ext2_fsinfo.bgdt],eax
 
+    leave
     ret
 
 .error_wrongfs:
@@ -137,8 +166,24 @@ ext2_openfs:
     ret
 
 
+global ext2_closefs
+ext_closefs:
+    push edi
+    call free
+    add esp,4
+
+
 global ext2_openfile
 ext2_openfile:
+    push ebp
+    mov ebp,esp
+%define fshandle ebp + 4
+%define filename ebp + 8
+    mov edi,[fshandle]
+    mov eax,EXT2_ROOT_INO
+    
+
+    leave
     ret
 
 
@@ -147,35 +192,147 @@ ext2_readfile:
     ret
 
 
-ext2_readblocks:
+; Returns file size in disk sectors (512 bytes)
+global ext2_getfilesize
+ext2_getfilesize:
     mov eax,[esp + 4]
+    mov eax,[eax + ext2i_i_size]
+    ret
+
+
+ext2_readblocks:
+    mov eax,[esp + 8]
     mov cx,[edi + ext2_fsinfo.frac]
     shl eax,cl
-    mov [esp + 4],eax
-    mov eax,[esp]
+    push eax
+    mov eax,[esp + 4]
     mov cx,[edi + ext2_fsinfo.log_block_size]
     shl eax,cl
     shl eax,1
-    mov [esp],eax
+    push eax
     shl eax,9
-    mov ecx,eax
+    push eax
     call malloc
+    add esp,4
     push eax
     push dword [edi + ext2_fsinfo.disk]
     call read_sectors
     mov eax,[esp + 4]
-    add esp,8
+    add esp,16
     ret
 
 
-; TODO: kill me plz!
-malloc:
-    mov eax,0x12340000
-    add eax,[malloc_l]
-    add [malloc_l],ecx
+; Inode number in eax, buffer in esi
+ext2_loadinode:
+    push esi
+    xor edx,edx
+    dec eax
+    div dword [edi + ext2_fsinfo.inodes_per_group]
+    ; eax = group number, edx = entry offset
+    cmp [edi + ext2_fsinfo.cached_itable_group],eax
+    jne .needread
+    mov eax,[edi + ext2_fsinfo.cached_itable]
+    jmp .read
+    .needread:
+    push dword [edi + ext2_fsinfo.cached_itable]
+    call free
+    add esp,4
+    mov [edi + ext2_fsinfo.cached_itable_group],eax
+    shl eax,5   ; *= sizeof(ext2i_bg)
+    mov esi,[edi + ext2_fsinfo.bgdt]
+    mov esi,[esi + eax + ext2i_bg.inode_table]
+    push dword 1
+    push esi
+    call ext2_readblocks
+    add esp,8
+    mov [edi + ext2_fsinfo.cached_itable],eax
+    .read:
+    pop esi
+    shl edx,7   ; *=sizeof(ext2i_i)
+    add edx,eax
+    push dword ext2i_i_size
+    push edx
+    push esi
+    call memcpy
+    add esp,12
+    ret
+
+
+; Dir inode in eax
+ext2_findfileindir:
+    push ebp
+    mov ebp,esp
+%define filename ebp + 4
+%define len ebp + 8
+    add esp,ext2i_i_size
+%define inode ebp - ext2i_i_size
+    lea esi,[inode]
+    call ext2_loadinode
+    call ext2_getfilesize
+    shl eax,7
+    push eax
+    call malloc
+    add esp,4
+    push eax
+    push esi
+    mov esi,eax
+    call ext2_readfile
+    add esp,8
+    push dword [len]
+    push dword [filename]
+    .loop:
+        xor ecx,ecx
+        mov cl,[esi + ext2i_de.name_len]
+        test cl,cl
+        jz .notfound
+        push ecx
+        lea ecx,[esi + ext2i_de.name]
+        push ecx
+        call strcmp
+        add esp,8
+        jz .gotit
+        add esi,[esi + ext2i_de.rec_len]
+        jmp .loop
+.notfound:
+    xor eax,eax
+    jmp .exit
+.gotit:
+    mov eax,[esi + ext2i_de.inode]
+.exit:
+    leave
+    ret
+
+
+strcmp:
+%define s1 esp + 4
+%define s1len esp + 8
+%define s2 esp + 12
+%define s2len esp + 16
+    mov ecx,[s1len]
+    mov edx,[s2len]
+    cmp ecx,edx
+    jne .no
+    mov eax,[s1]
+    mov edx,[s2]
+    xor eax,eax
+    .loop:
+        test ecx,ecx
+        jz .done
+        mov bh,[eax]
+        cmp bh,[edx]
+        jne .no
+        inc eax
+        inc edx
+        dec ecx
+        jmp .loop
+.no:
+    setc al
+    shl al,1
+    mov ebx,1
+    sub ebx,eax
+    mov eax,ebx
+.done:
     ret
 
 
 section .data
-; TODO: kill me plz!
-malloc_l: dd 0
