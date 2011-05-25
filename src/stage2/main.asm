@@ -3,6 +3,7 @@
 
 %include "asm/a20.inc"
 %include "asm/cpumode.inc"
+%include "asm/ext2fs.inc"
 %include "asm/mem.inc"
 %include "asm/output.inc"
 
@@ -15,6 +16,7 @@ global stage2_start
 stage2_start:
 
     ; There is current disk number in DL
+    push edx
 
     call a20_ensure
     test eax,eax
@@ -32,12 +34,22 @@ stage2_start:
 
     printline 'I have a surprise for you! Deploying surprise in 5...'
     mov esi,20
-    call sleep
+    ;call sleep
     printline '4...', 10
     mov esi,20
-    call sleep
+    ;call sleep
 
     ; Time to load kernel!
+    pop edx
+    push edx
+    call ext2_openfs
+    add esp,4
+    push dword 10
+    push kernel_path
+    push eax
+    call ext2_openfile
+    add esp,12
+
 
     jmp $
 
@@ -91,3 +103,4 @@ section .data
     boot_disk_id: db 0
 
     panic_msg: db 'Loader panic, stopping here', 10, 0
+    kernel_path: db 'stage2.bin'

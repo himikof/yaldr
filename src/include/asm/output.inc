@@ -9,7 +9,7 @@ extern clear_screen
     [section .data]
     %%msg: db %1, 0
     __SECT__
-    push %%msg
+    push dword %%msg
     call print
     add esp,4
 %endmacro

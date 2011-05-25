@@ -49,14 +49,14 @@ read_sectors:
         pop edx
         test ax, ax
         jnz .error
+        sub [remain], edx
         shl edx, 9
         push edx
         push dword INPUT_BUFFER
-        lea eax, [buffer]
+        mov eax, [buffer]
         push eax
         call memcpy
         add esp, 12
-        sub [remain], edx
         mov ecx, [remain]
         jmp .load_loop
 .error:
@@ -65,6 +65,7 @@ read_sectors:
     xor eax, eax
 .epilogue:
     mov sp, bp
+    pop bp
     ret
 
 fd_load_sectors:
@@ -137,20 +138,17 @@ hd_load_sectors:
     sub sp, disk_packet_t_size
 %define    disk_packet esp       ; 16 bytes
     ; Construct a disk_packet_t on stack
-    push bp
-    mov bp, sp
     mov eax, INPUT_BUFFER
     mov ecx, eax
     shr ecx, 4
     and ax, 0xF
     mov ebx, [start]
-    mov byte [bp + disk_packet_t.size], 16
-    mov byte [bp + disk_packet_t.pd1], 0
-    mov word [bp + disk_packet_t.buf_offset], ax
-    mov word [bp + disk_packet_t.buf_segment], cx
-    mov dword [bp + disk_packet_t.start_lba], ebx
-    mov dword [bp + disk_packet_t.upper_lba], 0
-    pop bp
+    mov byte [disk_packet + disk_packet_t.size], 16
+    mov byte [disk_packet + disk_packet_t.pd1], 0
+    mov word [disk_packet + disk_packet_t.buf_offset], ax
+    mov word [disk_packet + disk_packet_t.buf_segment], cx
+    mov dword [disk_packet + disk_packet_t.start_lba], ebx
+    mov dword [disk_packet + disk_packet_t.upper_lba], 0
     .loop:
         mov edx, [count]
         mov eax, 0x7F
@@ -173,6 +171,7 @@ hd_load_sectors:
         jz .finished
         jmp .loop
 .finished:
+    xor eax,eax
     jmp .epilogue
 .error:
     xor eax, eax
