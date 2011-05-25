@@ -1,2 +1,2 @@
 #!/bin/sh
-qemu -fda build/tools/fdimage -boot ca -gdb tcp::1234 $*
+qemu -hda build/tools/fdimage -boot ca -gdb tcp::1234 $*
