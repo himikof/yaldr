@@ -3,6 +3,13 @@
 
 %include "asm/output.inc"
 %include "asm/disk_private.inc"
+%include "asm/mem.inc"
+
+; Segment 0x2000 (64 KB) is the disk input buffer
+
+INPUT_BUFFER equ 0x20000
+INPUT_BUFFER_SIZE equ 0x10000
+INPUT_SECTORS equ INPUT_BUFFER_SIZE >> 9
 
 BITS 16
 
@@ -16,22 +23,54 @@ global read_sectors
 read_sectors:
     push bp
     mov bp, sp
+    sub sp, 6
 %define disk ebp + 4
 %define buffer ebp + 8
 %define start ebp + 12
 %define count ebp + 16
+%define func ebp - 2
+%define remain ebp - 6
     mov ax, fd_load_sectors
     mov cx, hd_load_sectors
     test byte [disk], 0x80
     cmovnz ax, cx
-    call ax
+    mov [func], ax
+    mov ecx, [count]
+    mov [remain], ecx
+    .load_loop:
+        test ecx, ecx
+        jz .success
+        mov edx, INPUT_SECTORS
+        cmp eax, ecx
+        cmova eax, ecx
+        mov [count], eax
+        push eax
+        call word [func]
+        pop edx
+        test ax, ax
+        jnz .error
+        shl edx, 9
+        push edx
+        push dword INPUT_BUFFER
+        lea eax, [buffer]
+        push eax
+        call memcpy
+        add esp, 12
+        sub [remain], edx
+        mov ecx, [remain]
+        jmp .load_loop
+.error:
+    jmp .epilogue
+.success:
+    xor eax, eax
+.epilogue:
     mov sp, bp
     ret
 
 fd_load_sectors:
     push es
     sectorsPerTrack equ 18
-    mov edi, [buffer]
+    mov edi, INPUT_BUFFER
     mov eax, edi
     shr eax, 4
     mov es, ax
@@ -100,7 +139,7 @@ hd_load_sectors:
     ; Construct a disk_packet_t on stack
     push bp
     mov bp, sp
-    mov eax, [buffer]
+    mov eax, INPUT_BUFFER
     mov ecx, eax
     shr ecx, 4
     and ax, 0xF
