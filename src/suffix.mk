@@ -28,7 +28,7 @@ $($(_MODULE_NAME)_OUTPUT)/%$(_OBJ_EXT): $(_MODULE_PATH)/%.S $(LL_DEPS)
 	$($(MODE)AS)$(AS) -c -o $@ $(call asm_include,$(INCLUDE_DIRS_ASM)) $(ALL_ASFLAGS) $<
 
 $($(_MODULE_NAME)_OUTPUT)/%$(_OBJ_EXT): $(_MODULE_PATH)/%.asm $(LL_DEPS)
-	$($(MODE)ASM)$(ASM) -o $@ $(ALL_ASFLAGS) $(call asm_include,$(INCLUDE_DIRS_ASM)) $<
+	$($(MODE)ASM)$(ASM) -MD $($(_MODULE_NAME)_OUTPUT)/$(<F:%.asm=%.d) -MP -o $@ $(ALL_ASFLAGS) $(call asm_include,$(INCLUDE_DIRS_ASM)) $<
 
 $(info Finished reading $(_MODULE_NAME))
 
