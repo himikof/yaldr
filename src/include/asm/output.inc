@@ -11,4 +11,5 @@ extern clear_screen
     __SECT__
     push %%msg
     call print
+    add esp,4
 %endmacro
