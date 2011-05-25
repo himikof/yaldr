@@ -97,7 +97,7 @@ relocated:
     ; must preserve bx
     push si
     sub sp, 16
-%define    disk_packet esp       ; 16 bytes
+%define    disk_packet esp + 2     ; 16 bytes, reserve space for bp
     ; Construct a disk_packet_t on stack
     push bp
     lea bp, [disk_packet]
