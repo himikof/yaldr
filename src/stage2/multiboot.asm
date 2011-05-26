@@ -76,6 +76,7 @@ MULTIBOOT_SEARCH_END equ 8192
 ; Load the kernel from the specified file handle
 ; Argument: file :: opaque_ptr - file handle
 ; Return value: the kernel entry point, or 0 in case of failure
+; Return value: (edx) the mb_info_t structure pointer
 global load_kernel
 load_kernel:
     push bp
@@ -125,12 +126,7 @@ load_kernel:
     mov [mbinfo], eax
     mov dword [eax + mb_info_t.flags], 0
     ; bit 0 is "supported" because we do not support modules
-    bt dword [header + mb_hdr_t.flags], 1
-    jnz .l2
-        push dword [mbinfo]
-        call prepare_meminfo
-        add sp, 4
-    .l2:
+    ; bit 1 is always supported
     bt dword [header + mb_hdr_t.flags], 2
     jnz .l3
         printline "Getting video modes is unsupported, cannot load kernel"
@@ -177,14 +173,43 @@ load_kernel:
     add sp, 12
     mov [entry], eax
 .loaded:
-    
+    ; [0] -- memory size
+    mov dword [mbinfo + mb_info_t.mem_lower], 640 * 1024
+    mov eax, [first_mem_hole]
+    sub eax, 0x100000
+    mov dword [mbinfo + mb_info_t.mem_upper], eax
+    or dword [mbinfo + mb_info_t.flags], 1 << 0
+    ; [1] -- boot device
+    xor eax, eax
+    not eax
+    mov al, [boot_disk_id]
+    mov [mbinfo + mb_info_t.boot_device], eax
+    or dword [mbinfo + mb_info_t.flags], 1 << 1
+    ; [2] -- cmdline -- ignore
+    ; [3] -- modules -- ignore
+    ; [4] -- a.out symbols -- forbid
+    ; [5] -- ELF symbols -- ignore
+    ; [6] -- memory map
+    mov eax, [mem_map_start]
+    mov [mbinfo + mb_info_t.mmap_addr], eax
+    mov ebx, MEMORY_MAP_END
+    sub ebx, eax
+    mov [mbinfo + mb_info_t.mmap_length], ebx
+    or dword [mbinfo + mb_info_t.flags], 1 << 6
+    ; [7] -- BIOS drives -- ignore
+    ; [8] -- BIOS config -- ignore
+    ; [9] -- Boot loader name
+    lea eax, [loader_name]
+    mov [mbinfo + mb_info_t.boot_loader_name], eax
+    or dword [mbinfo + mb_info_t.flags], 1 << 9
+    ; [10] -- APM table -- ignore
+    ; [11] -- Graphics -- ignore
+    ; mbinfo is ready now
+    lea edx, [mbinfo]
 .epilogue:
     mov eax, [entry]
     mov sp, bp
     pop bp
-    ret
-
-prepare_meminfo:
     ret
 
 ; Loads some data from disk, maybe zeroing some data after it.
@@ -236,3 +261,4 @@ load_chunk:
     ret
 
 section .data
+    loader_name db "Yaldr 0", 0

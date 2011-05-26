@@ -4,6 +4,7 @@
 %include "asm/a20.inc"
 %include "asm/cpumode.inc"
 %include "asm/ext2fs.inc"
+%include "asm/multiboot.inc"
 %include "asm/mem.inc"
 %include "asm/output.inc"
 
@@ -16,13 +17,13 @@ global stage2_start
 stage2_start:
 
     ; There is current disk number in DL
-    push edx
+    mov [boot_disk_id], dl
 
     call a20_ensure
     test eax,eax
     jnz .a20_ok
-    printline 'Could not enable A20'
-    call loader_panic
+        printline 'Could not enable A20'
+        call loader_panic
 .a20_ok:
 
     call switch_to_unreal
@@ -40,17 +41,11 @@ stage2_start:
     ;call sleep
 
     ; Time to load kernel!
-    pop edx
-    push edx
-    call ext2_openfs
-    add esp,4
-    push dword 10
-    push dword kernel_path
-    push eax
-    call ext2_openfile
-    add esp,12
+    call find_and_load_kernel
 
-
+    ; Boot it, at last.
+    ; call boot_kernel
+    
     jmp $
 
 section .data.head
@@ -68,6 +63,41 @@ loader_panic:
     printline 'Loader panic, stopping here', 10
     jmp $
 
+find_and_load_kernel:
+    ; Init FS, find kernel
+    mov dl, [boot_disk_id] 
+    push edx
+    call ext2_openfs
+    add sp, 4
+    test eax, eax
+    jnz .l1
+        printline "Could not open FS", 10
+        call loader_panic
+    .l1:
+    push dword kernel_path_size
+    push dword kernel_path
+    push eax
+    call ext2_openfile
+    add sp, 12
+    test eax, eax
+    jnz .l2
+        printline "Could not open kernel image", 10
+        call loader_panic
+    .l2:
+
+    push eax
+    call load_kernel
+    add sp, 4
+    test eax, eax
+    jnz .l3
+        printline "Could not load kernel image", 10
+        call loader_panic
+    .l3:
+
+    ; eax == entry point
+    ; edx == mb_info_t*
+    
+    ret
 
 ; Takes number of ticks in esi
 global sleep
@@ -98,6 +128,8 @@ sleep:
 
 
 section .data
+    global boot_disk_id
     boot_disk_id: db 0
 
     kernel_path: db 'stage2.bin'
+    kernel_path_size equ $ - kernel_path

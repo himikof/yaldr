@@ -10,3 +10,4 @@ extern detect_memory
 extern init_alloc
 
 extern mem_map_start
+extern first_mem_hole

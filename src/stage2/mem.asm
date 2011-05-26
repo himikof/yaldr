@@ -526,6 +526,39 @@ detect_memory:
 .exit:
     pop es
     pop ds
+    call find_memory_hole
+    ret
+
+find_memory_hole:
+    mov edx, [mem_map_start]
+    xor ebx, ebx
+    .map_loop:
+        cmp edx, MEMORY_MAP_END
+        jae .end
+        cmp dword [edx + mem_map_t.type], 1
+        jne .continue
+        cmp dword [edx + mem_map_t.base + 4], 0
+        jne .continue
+        cmp dword [edx + mem_map_t.base], 0x100000
+        jne .continue
+        mov eax, dword [edx + mem_map_t.length + 4]
+        mov ecx, dword [edx + mem_map_t.length]
+        mov ebx, edx
+    .continue:
+        add edx, dword [edx + mem_map_t.entry_size]
+        add edx, 4
+        jmp .map_loop
+.end:
+    xor edx, edx
+    not edx
+    add ecx, 0x100000
+    cmovo ecx, edx
+    test eax, eax
+    cmovnz ecx, edx
+    mov eax, 0x100000
+    test ebx, ebx
+    cmovnz eax, ecx
+    mov dword [first_mem_hole], eax
     ret
 
 ; Main memory allocation routine.
@@ -761,3 +794,5 @@ section .data
     test_mem_base: dd 0
     test_mem_free: dd 0
     test_mem_end: dd 0
+    global first_mem_hole
+    first_mem_hole: dd 0
