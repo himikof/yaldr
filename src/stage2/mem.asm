@@ -500,9 +500,7 @@ detect_memory:
 
 
 .error_got_nothing:
-    push error_msg
-    call print
-    add sp,2
+    printline 'Unable to detect memory', 10
     jmp .done
 
 
@@ -679,4 +677,3 @@ section .data
     test_mem_base: dd 0
     test_mem_free: dd 0
     test_mem_end: dd 0
-    error_msg: db 'Unable to detect memory', 10, 0
