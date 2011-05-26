@@ -632,10 +632,26 @@ memcpy:
     mov ecx, [esp + 18]
     mov edx, ecx
     shr ecx, 2
-rep movsd
+    jz .l2
+    .l1:
+        mov eax, [esi]
+        mov [edi], eax
+        add esi, 4
+        add edi, 4
+        dec ecx
+        jnz .l1
+    .l2:
     mov ecx, edx
     and ecx, 0x03
-rep movsb
+    jz .l4
+    .l3:
+        mov al, [esi]
+        mov [edi], al
+        inc esi
+        inc edi
+        dec ecx
+        jnz .l3
+    .l4:
 .epilogue:
     pop esi
     pop edi
