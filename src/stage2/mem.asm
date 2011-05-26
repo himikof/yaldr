@@ -526,6 +526,39 @@ detect_memory:
 .exit:
     pop es
     pop ds
+    call find_memory_hole
+    ret
+
+find_memory_hole:
+    mov edx, [mem_map_start]
+    xor ebx, ebx
+    .map_loop:
+        cmp edx, MEMORY_MAP_END
+        jae .end
+        cmp dword [edx + mem_map_t.type], 1
+        jne .continue
+        cmp dword [edx + mem_map_t.base + 4], 0
+        jne .continue
+        cmp dword [edx + mem_map_t.base], 0x100000
+        jne .continue
+        mov eax, dword [edx + mem_map_t.length + 4]
+        mov ecx, dword [edx + mem_map_t.length]
+        mov ebx, edx
+    .continue:
+        add edx, dword [edx + mem_map_t.entry_size]
+        add edx, 4
+        jmp .map_loop
+.end:
+    xor edx, edx
+    not edx
+    add ecx, 0x100000
+    cmovo ecx, edx
+    test eax, eax
+    cmovnz ecx, edx
+    mov eax, 0x100000
+    test ebx, ebx
+    cmovnz eax, ecx
+    mov dword [first_mem_hole], eax
     ret
 
 ; Main memory allocation routine.
@@ -670,6 +703,90 @@ memcpy:
     pop edi
     ret
 
+; memset(dest, ch, size)
+; Memory filling.
+; Argument: dest - pointer to destination
+; Argument: ch - the byte to fill with
+; Argument: size - dword, number of bytes to fill
+; Return value: dest
+global memset
+memset:
+    push edi
+    mov edi, [esp + 6]
+    mov al, [esp + 10]
+    shld eax, eax, 8
+    shld eax, eax, 16
+    mov ecx, [esp + 14]
+    mov edx, edi
+    and edx, 0x03
+    sub edx, 4
+    neg edx
+    sub ecx, edx
+    jz .l6
+    .l5:
+        mov [edi], al
+        inc edi
+        dec edx
+        jnz .l5
+    .l6:
+    mov edx, ecx
+    shr ecx, 2
+    jz .l2
+    .l1:
+        mov [edi], eax
+        add edi, 4
+        dec ecx
+        jnz .l1
+    .l2:
+    mov ecx, edx
+    and ecx, 0x03
+    jz .l4
+    .l3:
+        mov [edi], al
+        inc edi
+        dec ecx
+        jnz .l3
+    .l4:
+    mov eax, [esp + 6]
+.epilogue:
+    pop edi
+    ret
+
+; memcmp(s1, s2, size)
+; Memory comparing.
+; Argument: s1 - first pointer
+; Argument: s2 - second pointer
+; Argument: size - dword, number of bytes to compare
+; Return value: -1 if s1 < s2, 1 if s1 > s2, 0 if s1 == s2
+global memcmp
+memcmp:
+    mov ebx, [esp + 4]
+    mov edx, [esp + 8]
+    mov ecx, [esp + 12]
+
+    test ecx,ecx
+    jz .done    
+    .loop:
+        mov ah, [ebx]
+        cmp ah, [edx]
+        jne .no
+        inc ebx
+        inc edx
+        dec ecx
+        jnz .loop
+.done:
+    xor eax, eax
+    jmp .epilogue
+.no:
+    setc al
+    mov ah, 0
+    shl al, 1
+    mov ebx, 1
+    sub ebx, eax
+    mov eax, ebx
+.epilogue:
+    ret
+
 
 section .data
     global mem_map_start
@@ -677,3 +794,5 @@ section .data
     test_mem_base: dd 0
     test_mem_free: dd 0
     test_mem_end: dd 0
+    global first_mem_hole
+    first_mem_hole: dd 0
