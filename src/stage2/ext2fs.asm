@@ -48,6 +48,7 @@ struc ext2i_bg
     .reserved: resb 12
 endstruc
 
+%define ext2i_i.mode 0
 %define ext2i_i.size 4
 %define ext2i_i.blocks 28
 %define ext2i_i.block 40
@@ -66,6 +67,7 @@ endstruc
 ;;
 
 %define EXT2_ROOT_INO 2
+%define EXT2_S_IFDIR 0x4000
 %define EXT2_DELIM '/'
 
 
@@ -173,9 +175,11 @@ ext2_openfs:
 
 global ext2_closefs
 ext2_closefs:
-    push edi
+    mov eax,[esp + 2]
+    push eax
     call free
     add esp,4
+    ret
 
 
 global ext2_openfile
@@ -241,6 +245,71 @@ ext2_openfile:
 
 global ext2_readfile
 ext2_readfile:
+    push ebp
+    mov ebp,esp
+    push edi
+    push esi
+%define fshandle ebp + 2
+%define file ebp + 6
+%define buffer ebp + 10
+%define offset ebp + 14
+%define len ebp + 18
+    mov edi,[fshandle]
+    sub esp,ext2i_i_size
+%define inode ebp - ext2i_i_size
+    mov esi,esp
+    mov eax,[file]
+    call ext2_loadinode
+    mov esi,[buffer]
+    mov eax,[offset]
+    mov ecx,[edi + ext2_fsinfo.log_block_size]
+    shr eax,cl
+    shr eax,10
+    mov edx,[len]
+    shr edx,cl
+    push edx
+    cmp eax,12
+    jae .startindirect
+    cmp edx,12
+    cmova edx,12
+    sub edx,eax
+    call .readdirect
+    pop ecx
+    sub ecx,edx
+    test ecx,ecx
+    jz .done
+
+    
+.done:
+    pop esi
+    pop edi
+    mov esp,ebp
+    pop ebp
+    ret
+
+
+; esi = buffer, edi = fshandle,
+; eax = start block pinter,
+; edx = blocks count
+.readdirect:
+    push edx
+    shl eax,2
+    mov ecx,[inode + ext2i_i.block]
+    add ecx,eax
+    .loop1:
+        test edx,edx
+        jz .loop1.end
+        push dword 1
+        mov eax,[ecx]
+        push ecx
+        push esi
+        call ext2_readblocksraw
+        add esp,12
+        add esi,[edi + ext2_fsinfo.block_size]
+        dec edx
+        jmp .loop1
+    .loop1.end:
+    pop edx
     ret
 
 
@@ -248,38 +317,63 @@ ext2_readfile:
 global ext2_getfilesize
 ext2_getfilesize:
     mov eax,[esp + 2]
+    push esi
+    push esp
+    sub esp,ext2i_i_size
+    mov esi,esp
+    call ext2_loadinode
     mov edx,[eax + ext2i_i.dir_acl]
     mov eax,[eax + ext2i_i.size]
+    pop esp
+    pop esi
     ret
 
 
 ; Returns file size in disk sectors (512 bytes)
 ext2_getfilesectors:
     mov eax,[esp + 2]
-    mov eax,[eax + ext2i_i.blocks]
+    push esi
+    sub esp,ext2i_i_size
+    mov esi,esp
+    call ext2_loadinode
+    mov eax,[esi + ext2i_i.blocks]
+    add esp,ext2i_i_size
+    pop esi
     ret
 
 
-ext2_readblocks:
-    mov eax,[esp + 6]
+ext2_readblocksraw:
+    mov eax,[esp + 10]
     mov cx,[edi + ext2_fsinfo.fraclog]
     shl eax,cl
     push eax
     shl eax,9
     mov ebx,eax
-    mov eax,[esp + 6]   ; we have pushed eax
+    mov eax,[esp + 10]   ; we have pushed eax
+    push eax
+    mov eax,[esp + 10]
+    push eax
+    push dword [edi + ext2_fsinfo.disk]
+    call read_sectors
+    add esp,16
+    mov eax,[esp + 2]
+    ret
+
+ext2_readblocks:
+    mov eax,[esp + 6]
+    push eax
+    mov ebx,[esp + 6]
+    push ebx
     mov cx,[edi + ext2_fsinfo.log_block_size]
     shl eax,cl
     shl eax,1
     push eax
-    push ebx
     call malloc
     add esp,4
     push eax
-    push dword [edi + ext2_fsinfo.disk]
-    call read_sectors
-    mov eax,[esp + 4]
-    add esp,16
+    call ext2_readblocksraw
+    mov eax,[esp]
+    add esp,12
     ret
 
 
@@ -336,33 +430,43 @@ ext2_findfileindir:
 .nontriv:
     sub esp,ext2i_i_size
 %define inode ebp - ext2i_i_size
+    push eax
     lea esi,[inode]
     call ext2_loadinode
-    push esi
+    test word [esi + ext2i_i.mode],EXT2_S_IFDIR
+    jz .notfound
     call ext2_getfilesectors
     add esp,4
     shl eax,7
+    mov edx,eax
     push eax
     call malloc
     add esp,4
     push eax
     push esi
     mov esi,eax
+    add edx,esi
     call ext2_readfile
     add esp,8
     push dword [len]
     push dword [filename]
     .loop:
+        cmp esi,edx
+        je .notfound
         xor ecx,ecx
+        cmp dword [esi + ext2i_de.inode],0
+        jz .loop.next
         mov cl,[esi + ext2i_de.name_len]
-        test cl,cl
-        jz .notfound
+        ;test cl,cl
+        ;jz .notfound
         push ecx
         lea ecx,[esi + ext2i_de.name]
         push ecx
         call strcmp
         add esp,8
+        test eax,eax
         jz .gotit
+        .loop.next:
         add esi,[esi + ext2i_de.rec_len]
         jmp .loop
 .notfound:
