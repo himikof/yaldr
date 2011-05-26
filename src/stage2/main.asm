@@ -44,7 +44,8 @@ stage2_start:
     push edx
     call ext2_openfs
     add esp,4
-    push dword 10
+    mov ebx,[k_path_len]
+    push ebx
     push dword kernel_path
     push eax
     call ext2_openfile
@@ -100,4 +101,5 @@ sleep:
 section .data
     boot_disk_id: db 0
 
-    kernel_path: db 'stage2.bin'
+    kernel_path: db '/stage2.bin'
+    k_path_len: dd $-kernel_path

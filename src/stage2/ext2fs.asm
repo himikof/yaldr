@@ -200,13 +200,13 @@ ext2_openfile:
     xor eax,eax
     .loop1:
         cmp dword [fnamelen],0
-        jz .loop1.end
+        jle .loop1.end
         xor ecx,ecx
         .loop2:
             mov al,[esi + ecx]
-            inc ecx
             cmp al,EXT2_DELIM
             je .loop2.end
+            inc ecx
             cmp ecx,[fnamelen]
             je .loop2.end
             jmp .loop2
@@ -220,6 +220,7 @@ ext2_openfile:
         test eax,eax
         jz .notfound
         mov [inode],eax
+        inc ecx
         add esi,ecx
         sub [fnamelen],ecx
         jmp .loop1
