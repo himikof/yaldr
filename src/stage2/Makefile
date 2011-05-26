@@ -11,7 +11,7 @@ include $(_ROOT)/prefix.mk
 # End of magic
 
 
-STAGE2_SRCS = a20.asm cpumode.asm disk.asm ext2fs.asm main.asm mem.asm output.asm string.asm
+STAGE2_SRCS = a20.asm cpumode.asm disk.asm elf32.asm ext2fs.asm main.asm mem.asm multiboot.asm output.asm string.asm
 $(call local_target,pre-stage2)_LDSCRIPT = $(_MODULE_PATH)/stage2.ld
 $(call add_executable,pre-stage2,$(STAGE2_SRCS))
 
