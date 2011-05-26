@@ -45,7 +45,7 @@ stage2_start:
     call ext2_openfs
     add esp,4
     push dword 10
-    push kernel_path
+    push dword kernel_path
     push eax
     call ext2_openfile
     add esp,12

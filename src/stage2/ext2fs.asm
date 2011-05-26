@@ -48,8 +48,10 @@ struc ext2i_bg
     .reserved: resb 12
 endstruc
 
+%define ext2i_i.size 4
 %define ext2i_i.blocks 28
 %define ext2i_i.block 40
+%define ext2i_i.dir_acl 108
 %define ext2i_i_size 128
 
 struc ext2i_de
@@ -153,7 +155,9 @@ ext2_openfs:
     add esp,8
     mov [edi + ext2_fsinfo.bgdt],eax
 
-    leave
+    mov eax,edi
+    mov esp,ebp
+    pop ebp
     ret
 
 .error_wrongfs:
@@ -168,7 +172,7 @@ ext2_openfs:
 
 
 global ext2_closefs
-ext_closefs:
+ext2_closefs:
     push edi
     call free
     add esp,4
@@ -230,7 +234,8 @@ ext2_openfile:
     xor eax,eax
     printline 'File not found', 10
 .exit:
-    leave
+    mov esp,ebp
+    pop ebp
     ret
 
 
@@ -239,11 +244,19 @@ ext2_readfile:
     ret
 
 
-; Returns file size in disk sectors (512 bytes)
+; Returns file size
 global ext2_getfilesize
 ext2_getfilesize:
     mov eax,[esp + 2]
-    mov eax,[eax + ext2i_i_size]
+    mov edx,[eax + ext2i_i.dir_acl]
+    mov eax,[eax + ext2i_i.size]
+    ret
+
+
+; Returns file size in disk sectors (512 bytes)
+ext2_getfilesectors:
+    mov eax,[esp + 2]
+    mov eax,[eax + ext2i_i.blocks]
     ret
 
 
@@ -282,9 +295,12 @@ ext2_loadinode:
     mov eax,[edi + ext2_fsinfo.cached_itable]
     jmp .read
     .needread:
+    push edx
+    push eax
     push dword [edi + ext2_fsinfo.cached_itable]
     call free
     add esp,4
+    pop eax
     mov [edi + ext2_fsinfo.cached_itable_group],eax
     shl eax,5   ; *= sizeof(ext2i_bg)
     mov esi,[edi + ext2_fsinfo.bgdt]
@@ -294,6 +310,7 @@ ext2_loadinode:
     call ext2_readblocks
     add esp,8
     mov [edi + ext2_fsinfo.cached_itable],eax
+    pop edx
     .read:
     pop esi
     shl edx,7   ; *=sizeof(ext2i_i)
@@ -317,11 +334,13 @@ ext2_findfileindir:
     jne .nontriv
     jmp .exit
 .nontriv:
-    add esp,ext2i_i_size
+    sub esp,ext2i_i_size
 %define inode ebp - ext2i_i_size
     lea esi,[inode]
     call ext2_loadinode
-    call ext2_getfilesize
+    push esi
+    call ext2_getfilesectors
+    add esp,4
     shl eax,7
     push eax
     call malloc
@@ -353,7 +372,8 @@ ext2_findfileindir:
     mov eax,[esi + ext2i_de.inode]
 .exit:
     pop esi
-    leave
+    mov esp,ebp
+    pop ebp
     ret
 
 
