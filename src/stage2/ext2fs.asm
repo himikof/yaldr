@@ -189,7 +189,7 @@ ext2_openfile:
 %define fshandle ebp + 6
 %define filename ebp + 10
 %define len ebp + 14
-    add esp,8
+    sub esp,8
 %define inode ebp - 4
 %define fnamelen ebp - 8
     mov edi,[fshandle]
@@ -204,9 +204,9 @@ ext2_openfile:
         xor ecx,ecx
         .loop2:
             mov al,[esi + ecx]
+            inc ecx
             cmp al,EXT2_DELIM
             je .loop2.end
-            inc ecx
             cmp ecx,[fnamelen]
             je .loop2.end
             jmp .loop2
@@ -220,19 +220,22 @@ ext2_openfile:
         test eax,eax
         jz .notfound
         mov [inode],eax
-        inc ecx
         add esi,ecx
         sub [fnamelen],ecx
         jmp .loop1
     .loop1.end:
     mov eax,[inode]
+    push eax
     mov ecx,eax
     .l:
+        push ecx
         printline 'V'
+        pop ecx
         dec ecx
         jz .lend
         jmp .l
     .lend:
+    pop eax
     jmp .exit
 .notfound:
     xor eax,eax
@@ -246,19 +249,19 @@ ext2_openfile:
 global ext2_readfile
 ext2_readfile:
     push ebp
-    mov ebp,esp
     push edi
     push esi
-%define fshandle ebp + 2
-%define file ebp + 6
-%define buffer ebp + 10
-%define offset ebp + 14
-%define len ebp + 18
+    mov ebp,esp
+%define fshandle ebp + 12 +2
+%define file ebp + 12 + 6
+%define buffer ebp + 12 + 10
+%define offset ebp + 12 + 14
+%define len ebp + 12 + 18
     mov edi,[fshandle]
     sub esp,ext2i_i_size + 8
 %define inode ebp - ext2i_i_size - 8
 %define totalblocks ebp - 4
-    mov esi,esp
+    lea esi,[inode]
     mov eax,[file]
     call ext2_loadinode
     mov ecx,[edi + ext2_fsinfo.log_block_size]
@@ -269,35 +272,65 @@ ext2_readfile:
     mov esi,[buffer]
     mov ebx,[offset]
     shr ebx,cl
-    shr ebx,10 ; first block
+    shr ebx,10 ; first block to read
+.direct:
     mov edx,12
     push edx
     cmp ebx,edx
     jae .nodirect
+    push ebx
     sub edx,ebx
     push edx
+    lea ebx,[inode + ext2i_i.block]
     call .r0
-    add esp,4
-    pop ebx
+    add esp,8
+    mov ebx,[esp] ; 12
 .nodirect:
+    pop edx
+    sub ebx,edx
+    mov ecx,[edi + ext2_fsinfo.log_block_size]
+    add ecx,8 ; log number of pointers in one block
+    mov edx,1
+    shl edx,cl
+    push edx
+    cmp ebx,edx
+    jae .noindirect
+    push ebp
+    push dword 1
+    mov ebx,[inode + ext2i_i.block + 32*12]
+    call .r1
+    add esp,8
+    mov ebx,[esp] ; number of pointers in indirect block
+.noindirect:
+
+
 
 
     ;////
 .allread:
-    ; ok we've read everything, bye
+    mov esp,ebp
+    pop esi
+    pop edi
+    pop ebp
+    ret
 
 ; edi = fshandle
 ; esi = &(buffer)
 ; ebx = first block pointer
-; &(max blocks to read) on stack
+; stack: &(max blocks to read)
+; stack: first requested block pointer offset
 ; ! overwrites esi
 .r0:
     sub esp,8
     push esi   ; esp + 0
 %define max_blocks esp + 12
+%define first_pointer esp + 16
 %define read_off esp + 4
 %define read_len esp + 8
     mov [read_len],dword 1
+    mov ecx,[first_pointer]
+    shl ecx,2
+    add ebx,ecx
     .loop0:
         mov ecx,[ebx]
         mov [read_off],ecx
@@ -310,11 +343,21 @@ ext2_readfile:
         add ebx,32
         jmp .loop0
 .r0.maxreached:
-    add esp,8
+    add esp,12
     ret
 .r0.allread:
-    add esp,8
+    add esp,12 + 2
     jmp .allread
+
+
+; edi = fshandle
+; esi = &(buffer)
+; ebx = first block pointer
+; stack: &(max blocks to read)
+; stack: first requested block pointer offset
+; ! overwrites esi
+.r1:
+
 
 
 ; Returns file size
@@ -352,9 +395,10 @@ ext2_readblocksraw:
     mov cx,[edi + ext2_fsinfo.fraclog]
     shl eax,cl
     push eax
-    shl eax,9
-    mov ebx,eax
     mov eax,[esp + 10]   ; we have pushed eax
+    mov cx,[edi + ext2_fsinfo.log_block_size]
+    shl eax,cl
+    shl eax,1
     push eax
     mov eax,[esp + 10]
     push eax
@@ -371,7 +415,7 @@ ext2_readblocks:
     push ebx
     mov cx,[edi + ext2_fsinfo.log_block_size]
     shl eax,cl
-    shl eax,1
+    shl eax,10
     push eax
     call malloc
     add esp,4
@@ -441,18 +485,22 @@ ext2_findfileindir:
     test word [esi + ext2i_i.mode],EXT2_S_IFDIR
     jz .notfound
     call ext2_getfilesectors
-    add esp,4
-    shl eax,7
+    pop esi
+    shl eax,9
     mov edx,eax
     push eax
     call malloc
     add esp,4
+    push edx
+    add edx,eax ; end of directory
+    push dword 0
     push eax
     push esi
     mov esi,eax
-    add edx,esi
+    push edi
     call ext2_readfile
-    add esp,8
+    add esp,20
+    pop edx
     push dword [len]
     push dword [filename]
     .loop:
@@ -472,7 +520,9 @@ ext2_findfileindir:
         test eax,eax
         jz .gotit
         .loop.next:
-        add esi,[esi + ext2i_de.rec_len]
+        xor ecx,ecx
+        mov cx,[esi + ext2i_de.rec_len]
+        add esi,ecx
         jmp .loop
 .notfound:
     xor eax,eax
@@ -487,10 +537,10 @@ ext2_findfileindir:
 
 
 ext2_strcmp:
-%define s1 esp + 6
-%define s1len esp + 10
-%define s2 esp + 14
-%define s2len esp + 18
+%define s1 esp + 2
+%define s1len esp + 6
+%define s2 esp + 10
+%define s2len esp + 14
     xor eax,eax
     mov ecx,[s1len]
     mov edx,[s2len]
