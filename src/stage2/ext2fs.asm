@@ -255,62 +255,66 @@ ext2_readfile:
 %define offset ebp + 14
 %define len ebp + 18
     mov edi,[fshandle]
-    sub esp,ext2i_i_size
-%define inode ebp - ext2i_i_size
+    sub esp,ext2i_i_size + 8
+%define inode ebp - ext2i_i_size - 8
+%define totalblocks ebp - 4
     mov esi,esp
     mov eax,[file]
     call ext2_loadinode
-    mov esi,[buffer]
-    mov eax,[offset]
     mov ecx,[edi + ext2_fsinfo.log_block_size]
-    shr eax,cl
-    shr eax,10
     mov edx,[len]
     shr edx,cl
+    shr edx,10 ; total sectors to read
+    mov [totalblocks],edx
+    mov esi,[buffer]
+    mov ebx,[offset]
+    shr ebx,cl
+    shr ebx,10 ; first block
+    mov edx,12
     push edx
-    cmp eax,12
-    jae .startindirect
-    cmp edx,12
-    ;cmova edx,12
-    sub edx,eax
-    call .readdirect
-    pop ecx
-    sub ecx,edx
-    test ecx,ecx
-    jz .done
-
-.startindirect:
-.done:
-    pop esi
-    pop edi
-    mov esp,ebp
-    pop ebp
-    ret
-
-
-; esi = buffer, edi = fshandle,
-; eax = start block pinter,
-; edx = blocks count
-.readdirect:
+    cmp ebx,edx
+    jae .nodirect
+    sub edx,ebx
     push edx
-    shl eax,2
-    mov ecx,[inode + ext2i_i.block]
-    add ecx,eax
-    .loop1:
-        test edx,edx
-        jz .loop1.end
-        push dword 1
-        mov eax,[ecx]
-        push ecx
-        push esi
-        call ext2_readblocksraw
-        add esp,12
+    call .r0
+    add esp,4
+    pop ebx
+.nodirect:
+
+
+    ;////
+.allread:
+    ; ok we've read everything, bye
+
+; edi = fshandle
+; esi = &(buffer)
+; ebx = first block pointer
+; &(max blocks to read) on stack
+; ! overwrites esi
+.r0:
+    sub esp,8
+    push esi   ; esp + 0
+%define max_blocks esp + 12
+%define read_off esp + 4
+%define read_len esp + 8
+    mov [read_len],dword 1
+    .loop0:
+        mov ecx,[ebx]
+        mov [read_off],ecx
+        call ext2_readblocksraw ; preserves ebx
         add esi,[edi + ext2_fsinfo.block_size]
-        dec edx
-        jmp .loop1
-    .loop1.end:
-    pop edx
+        dec dword [max_blocks]
+        jz .r0.maxreached
+        dec dword [totalblocks]
+        jz .r0.allread
+        add ebx,32
+        jmp .loop0
+.r0.maxreached:
+    add esp,8
     ret
+.r0.allread:
+    add esp,8
+    jmp .allread
 
 
 ; Returns file size
@@ -342,6 +346,7 @@ ext2_getfilesectors:
     ret
 
 
+; Preserves ebx
 ext2_readblocksraw:
     mov eax,[esp + 10]
     mov cx,[edi + ext2_fsinfo.fraclog]
