@@ -271,7 +271,7 @@ ext2_readfile:
     cmp eax,12
     jae .startindirect
     cmp edx,12
-    cmova edx,12
+    ;cmova edx,12
     sub edx,eax
     call .readdirect
     pop ecx
@@ -279,7 +279,7 @@ ext2_readfile:
     test ecx,ecx
     jz .done
 
-    
+.startindirect:
 .done:
     pop esi
     pop edi
@@ -462,7 +462,7 @@ ext2_findfileindir:
         push ecx
         lea ecx,[esi + ext2i_de.name]
         push ecx
-        call strcmp
+        call ext2_strcmp
         add esp,8
         test eax,eax
         jz .gotit
@@ -481,35 +481,33 @@ ext2_findfileindir:
     ret
 
 
-strcmp:
+ext2_strcmp:
 %define s1 esp + 6
 %define s1len esp + 10
 %define s2 esp + 14
 %define s2len esp + 18
+    xor eax,eax
     mov ecx,[s1len]
     mov edx,[s2len]
     cmp ecx,edx
     jne .no
-    mov eax,[s1]
+    test ecx,ecx
+    jz .done
+    mov ebx,[s1]
     mov edx,[s2]
-    xor eax,eax
     .loop:
-        test ecx,ecx
-        jz .done
-        mov bh,[eax]
-        cmp bh,[edx]
+        mov ah,[ebx]
+        cmp ah,[edx]
         jne .no
-        inc eax
+        inc ebx
         inc edx
         dec ecx
+        jz .done
         jmp .loop
 .no:
-    setc al
-    shl al,1
-    mov ebx,1
-    sub ebx,eax
-    mov eax,ebx
+    mov eax,1
 .done:
+    xor ah,ah
     ret
 
 
