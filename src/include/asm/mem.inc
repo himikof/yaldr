@@ -3,6 +3,8 @@
 extern malloc
 extern free
 extern memcpy
+extern memset
+extern memcmp
 
 extern detect_memory
 extern init_alloc

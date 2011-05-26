@@ -670,6 +670,90 @@ memcpy:
     pop edi
     ret
 
+; memset(dest, ch, size)
+; Memory filling.
+; Argument: dest - pointer to destination
+; Argument: ch - the byte to fill with
+; Argument: size - dword, number of bytes to fill
+; Return value: dest
+global memset
+memset:
+    push edi
+    mov edi, [esp + 6]
+    mov al, [esp + 10]
+    shld eax, eax, 8
+    shld eax, eax, 16
+    mov ecx, [esp + 14]
+    mov edx, edi
+    and edx, 0x03
+    sub edx, 4
+    neg edx
+    sub ecx, edx
+    jz .l6
+    .l5:
+        mov [edi], al
+        inc edi
+        dec edx
+        jnz .l5
+    .l6:
+    mov edx, ecx
+    shr ecx, 2
+    jz .l2
+    .l1:
+        mov [edi], eax
+        add edi, 4
+        dec ecx
+        jnz .l1
+    .l2:
+    mov ecx, edx
+    and ecx, 0x03
+    jz .l4
+    .l3:
+        mov [edi], al
+        inc edi
+        dec ecx
+        jnz .l3
+    .l4:
+    mov eax, [esp + 6]
+.epilogue:
+    pop edi
+    ret
+
+; memcmp(s1, s2, size)
+; Memory comparing.
+; Argument: s1 - first pointer
+; Argument: s2 - second pointer
+; Argument: size - dword, number of bytes to compare
+; Return value: -1 if s1 < s2, 1 if s1 > s2, 0 if s1 == s2
+global memcmp
+memcmp:
+    mov ebx, [esp + 4]
+    mov edx, [esp + 8]
+    mov ecx, [esp + 12]
+
+    test ecx,ecx
+    jz .done    
+    .loop:
+        mov ah, [ebx]
+        cmp ah, [edx]
+        jne .no
+        inc ebx
+        inc edx
+        dec ecx
+        jnz .loop
+.done:
+    xor eax, eax
+    jmp .epilogue
+.no:
+    setc al
+    mov ah, 0
+    shl al, 1
+    mov ebx, 1
+    sub ebx, eax
+    mov eax, ebx
+.epilogue:
+    ret
+
 
 section .data
     global mem_map_start
