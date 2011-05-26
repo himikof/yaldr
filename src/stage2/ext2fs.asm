@@ -18,7 +18,7 @@ struc ext2_fsinfo
     .blocks_per_group: resd 1
     .inodes_per_group: resd 1
     .inode_size: resw 1
-    .frac: resw 1
+    .fraclog: resw 1
     .bgdt: resd 1
     .cached_itable_group: resd 1
     .cached_itable: resd 1
@@ -121,7 +121,7 @@ ext2_openfs:
 
     mov ebx,1
     add ebx,[edi + ext2_fsinfo.log_block_size]
-    mov [edi + ext2_fsinfo.frac],bx
+    mov [edi + ext2_fsinfo.fraclog],bx
 
     mov ebx,8 * 1024
     mov ecx,[edi + ext2_fsinfo.log_block_size]  ; block group size
@@ -133,15 +133,15 @@ ext2_openfs:
     setnz dl
     xor dh,dh
     add eax,edx     ; block groups count
-    shl eax,32      ; sizeof(BGDT)
+    shl eax,5       ; sizeof(BGDT)
     mov edx,eax
     shr eax,cl
     shr eax,10
     mov ebx,eax
     shl ebx,cl
     shl ebx,10
-    test ebx,edx
-    setnz dl
+    cmp ebx,edx
+    setne dl
     xor dh,dh
     add eax,edx     ; number of blocks used for BGDT
 
@@ -249,16 +249,17 @@ ext2_getfilesize:
 
 ext2_readblocks:
     mov eax,[esp + 6]
-    mov cx,[edi + ext2_fsinfo.frac]
+    mov cx,[edi + ext2_fsinfo.fraclog]
     shl eax,cl
     push eax
-    mov eax,[esp + 2]
+    shl eax,9
+    mov ebx,eax
+    mov eax,[esp + 6]   ; we have pushed eax
     mov cx,[edi + ext2_fsinfo.log_block_size]
     shl eax,cl
     shl eax,1
     push eax
-    shl eax,9
-    push eax
+    push ebx
     call malloc
     add esp,4
     push eax

@@ -8,7 +8,7 @@ fi
 fdimage=$1
 dd if=/dev/zero of=$fdimage count=2880 2>/dev/null
 lodev=`losetup -f --show $fdimage`
-mke2fs -t ext2 $lodev > /dev/null || exit 1
+mke2fs -O ^resize_inode -t ext2 $lodev > /dev/null || exit 1
 mpoint=`mktemp -d`
 mount $lodev $mpoint || exit 1
 outfile=$2
