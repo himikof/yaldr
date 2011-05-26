@@ -569,6 +569,7 @@ test_init_alloc:
         mov eax, 1
         jmp .epilogue
     .l1:
+%ifdef MALLOC_HIGH
     xor esi, esi  ; High dword
     xor ecx, ecx  ; Low dword
     ; ebx == max entry
@@ -611,6 +612,15 @@ test_init_alloc:
     add eax, ecx
     cmovo eax, edx
     mov dword [test_mem_end], eax
+%elifdef MALLOC_LOW
+    ; Use 0x30000-0x50000 (128 KB)
+    mov eax, 0x30000
+    mov dword [test_mem_base], eax
+    mov dword [test_mem_free], eax
+    mov dword [test_mem_end], 0x50000
+%else
+    %error No malloc policy defined
+%endif
 .success:
     xor eax, eax
 .epilogue:
