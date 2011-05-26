@@ -3,6 +3,7 @@
 
 %include "asm/mem_private.inc"
 %include "asm/output.inc"
+%include "asm/main.inc"
 
 BITS 16
 
@@ -546,6 +547,10 @@ test_malloc:
     mov [test_mem_free], ecx
     jmp .epilogue
 .failure:
+%ifdef MALLOC_PANIC
+    printline "Allocator memory exhausted!", 10
+    call loader_panic
+%endif
     xor eax, eax
 .epilogue:
     pop bp

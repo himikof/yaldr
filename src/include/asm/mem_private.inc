@@ -7,3 +7,5 @@ MEMORY_MAP_END equ 0x1ffff
 
 ;%define MALLOC_HIGH
 %define MALLOC_LOW
+
+%define MALLOC_PANIC
