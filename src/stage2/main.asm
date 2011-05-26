@@ -65,9 +65,7 @@ section .text
 
 global loader_panic
 loader_panic:
-    push panic_msg
-    call print
-    add sp, 2
+    printline 'Loader panic, stopping here', 10
     jmp $
 
 
@@ -102,5 +100,4 @@ sleep:
 section .data
     boot_disk_id: db 0
 
-    panic_msg: db 'Loader panic, stopping here', 10, 0
     kernel_path: db 'stage2.bin'

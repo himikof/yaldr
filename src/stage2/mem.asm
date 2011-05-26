@@ -3,6 +3,7 @@
 
 %include "asm/mem_private.inc"
 %include "asm/output.inc"
+%include "asm/main.inc"
 
 BITS 16
 
@@ -499,9 +500,7 @@ detect_memory:
 
 
 .error_got_nothing:
-    push error_msg
-    call print
-    add sp,2
+    printline 'Unable to detect memory', 10
     jmp .done
 
 
@@ -546,6 +545,10 @@ test_malloc:
     mov [test_mem_free], ecx
     jmp .epilogue
 .failure:
+%ifdef MALLOC_PANIC
+    printline "Allocator memory exhausted!", 10
+    call loader_panic
+%endif
     xor eax, eax
 .epilogue:
     pop bp
@@ -569,6 +572,7 @@ test_init_alloc:
         mov eax, 1
         jmp .epilogue
     .l1:
+%ifdef MALLOC_HIGH
     xor esi, esi  ; High dword
     xor ecx, ecx  ; Low dword
     ; ebx == max entry
@@ -611,6 +615,15 @@ test_init_alloc:
     add eax, ecx
     cmovo eax, edx
     mov dword [test_mem_end], eax
+%elifdef MALLOC_LOW
+    ; Use 0x30000-0x50000 (128 KB)
+    mov eax, 0x30000
+    mov dword [test_mem_base], eax
+    mov dword [test_mem_free], eax
+    mov dword [test_mem_end], 0x50000
+%else
+    %error No malloc policy defined
+%endif
 .success:
     xor eax, eax
 .epilogue:
@@ -664,4 +677,3 @@ section .data
     test_mem_base: dd 0
     test_mem_free: dd 0
     test_mem_end: dd 0
-    error_msg: db 'Unable to detect memory', 10, 0
