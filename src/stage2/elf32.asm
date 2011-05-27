@@ -82,7 +82,7 @@ load_elf32:
     mov dword [entry], 0
     cmp dword [header_size], elf_header_t_size
     jae .l1
-        printline "Image file is too small"
+        printline "Image file is too small", 10
         jmp .epilogue
     .l1:
     push dword ei_osabi  ; compare up to ei_osabi field
@@ -91,7 +91,7 @@ load_elf32:
     call memcmp
     add sp, 12
     jne .l2
-        printline "ELF signature is not recognized"
+        printline "ELF signature is not recognized", 10
         jmp .epilogue
     .l2:
     cmp word [header + e_type], ET_EXEC
@@ -108,7 +108,7 @@ load_elf32:
     jb .l3
     jmp .l4
     .l3:
-        printline "ELF file does not have right parameters"
+        printline "ELF file does not have right parameters", 10
         jmp .epilogue
     .l4:
     movzx eax, word [header + e_pheader_entries]
@@ -126,7 +126,7 @@ load_elf32:
     add sp, 16
     cmp eax, dword [esp]
     je .l5
-        printline "Program header table read failure"
+        printline "Program header table read failure", 10
         jmp .epilogue
     .l5:
     add sp, 4

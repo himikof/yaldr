@@ -103,14 +103,15 @@ load_kernel:
     mov [read_size], eax
     xor ecx, ecx
     sub eax, mb_hdr_t_size - 1 ; not searching past buffer end
+    mov edx, [file_header]
     cmp ecx, eax
     je .hdr_notfound
     .l1:
-        cmp dword [file_header + ecx], MULTIBOOT_MAGIC
+        cmp dword [edx + ecx], MULTIBOOT_MAGIC
         jne .continue
             mov ebx, MULTIBOOT_MAGIC
-            add ebx, dword [file_header + ecx + mb_hdr_t.flags]
-            add ebx, dword [file_header + ecx + mb_hdr_t.checksum]
+            add ebx, dword [edx + ecx + mb_hdr_t.flags]
+            add ebx, dword [edx + ecx + mb_hdr_t.checksum]
             test ebx, ebx
             jz .hdr_found
     .continue:
@@ -122,7 +123,7 @@ load_kernel:
     jmp .epilogue
 .hdr_found:
     ; ecx == hdr offset
-    lea ecx, [file_header + ecx]
+    lea ecx, [edx + ecx]
     mov [header], ecx
     push dword mb_info_t_size
     call malloc
@@ -131,20 +132,23 @@ load_kernel:
     mov dword [eax + mb_info_t.flags], 0
     ; bit 0 is "supported" because we do not support modules
     ; bit 1 is always supported
-    bt dword [header + mb_hdr_t.flags], 2
-    jnz .l3
+    mov ecx, [header]
+    bt dword [ecx + mb_hdr_t.flags], 2
+    jz .l3
         printline "Getting video modes is unsupported, cannot load kernel", 10
         jmp .epilogue        
     .l3:
-    bt dword [header + mb_hdr_t.flags], 16
-    jnz .l4
+    bt dword [ecx + mb_hdr_t.flags], 16
+    jz .l4
         ; loading manually
-        mov ebx, [header]
+        push esi
+        mov esi, [header]
+        mov ebx, esi
         sub ebx, [file_header]
-        sub ebx, [header + mb_hdr_t.header_addr]
-        mov ecx, [header + mb_hdr_t.load_addr]
+        sub ebx, [esi + mb_hdr_t.header_addr]
+        mov ecx, [esi + mb_hdr_t.load_addr]
         add ebx, ecx
-        mov edx, [header + mb_hdr_t.load_end_addr]
+        mov edx, [esi + mb_hdr_t.load_end_addr]
         test edx, edx
         jnz .fixed_size
             push dword [file]
@@ -153,7 +157,7 @@ load_kernel:
             sub eax, ebx
             mov edx, eax
         .fixed_size:
-        mov eax, [header + mb_hdr_t.bss_end_addr]
+        mov eax, [esi + mb_hdr_t.bss_end_addr]
         test eax, eax
         cmovz eax, edx
         push eax               ; memsz
@@ -165,8 +169,9 @@ load_kernel:
         add sp, 20
         test eax, eax
         jnz .epilogue
-        mov eax, [header + mb_hdr_t.entry_addr]
+        mov eax, [esi + mb_hdr_t.entry_addr]
         mov [entry], eax
+        pop esi
         jmp .loaded
     .l4:
     ; loading ELF
@@ -177,39 +182,42 @@ load_kernel:
     add sp, 12
     mov [entry], eax
 .loaded:
+    push esi
+    mov esi, [mbinfo]
     ; [0] -- memory size
-    mov dword [mbinfo + mb_info_t.mem_lower], 640 * 1024
+    mov dword [esi + mb_info_t.mem_lower], 640 * 1024
     mov eax, [first_mem_hole]
     sub eax, 0x100000
-    mov dword [mbinfo + mb_info_t.mem_upper], eax
-    or dword [mbinfo + mb_info_t.flags], 1 << 0
+    mov dword [esi + mb_info_t.mem_upper], eax
+    or dword [esi + mb_info_t.flags], 1 << 0
     ; [1] -- boot device
     xor eax, eax
     not eax
     mov al, [boot_disk_id]
-    mov [mbinfo + mb_info_t.boot_device], eax
-    or dword [mbinfo + mb_info_t.flags], 1 << 1
+    mov [esi + mb_info_t.boot_device], eax
+    or dword [esi + mb_info_t.flags], 1 << 1
     ; [2] -- cmdline -- ignore
     ; [3] -- modules -- ignore
     ; [4] -- a.out symbols -- forbid
     ; [5] -- ELF symbols -- ignore
     ; [6] -- memory map
     mov eax, [mem_map_start]
-    mov [mbinfo + mb_info_t.mmap_addr], eax
+    mov [esi + mb_info_t.mmap_addr], eax
     mov ebx, MEMORY_MAP_END
     sub ebx, eax
-    mov [mbinfo + mb_info_t.mmap_length], ebx
-    or dword [mbinfo + mb_info_t.flags], 1 << 6
+    mov [esi + mb_info_t.mmap_length], ebx
+    or dword [esi + mb_info_t.flags], 1 << 6
     ; [7] -- BIOS drives -- ignore
     ; [8] -- BIOS config -- ignore
     ; [9] -- Boot loader name
     lea eax, [loader_name]
-    mov [mbinfo + mb_info_t.boot_loader_name], eax
-    or dword [mbinfo + mb_info_t.flags], 1 << 9
+    mov [esi + mb_info_t.boot_loader_name], eax
+    or dword [esi + mb_info_t.flags], 1 << 9
     ; [10] -- APM table -- ignore
     ; [11] -- Graphics -- ignore
     ; mbinfo is ready now
     lea edx, [mbinfo]
+    pop esi
 .epilogue:
     mov eax, [entry]
     mov sp, bp
