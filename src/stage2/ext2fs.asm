@@ -24,6 +24,11 @@ struc ext2_fsinfo
     .cached_itable: resd 1
 endstruc
 
+struc ext2_file_handle
+    .fsinfo: resd 1
+    .file: resd 1
+endstruc
+
 ;;
 ; Ext2 internal structures
 
@@ -189,10 +194,15 @@ ext2_openfile:
 %define fshandle ebp + 6
 %define filename ebp + 10
 %define len ebp + 14
-    sub esp,8
-%define inode ebp - 4
+    sub esp,12
+%define handle ebp - 4
 %define fnamelen ebp - 8
+%define inode ebp - 12
+    push dword ext2_file_handle_size
+    call malloc
+    mov [handle], eax
     mov edi,[fshandle]
+    mov [eax + ext2_file_handle.fsinfo], edi
     mov esi,[filename]
     mov eax,[len]
     mov [fnamelen],eax
@@ -236,7 +246,9 @@ ext2_openfile:
         jz .lend
         jmp .l
     .lend:
-    pop eax
+    pop ebx
+    mov eax, [handle]
+    mov [eax + ext2_file_handle.file], ebx
     jmp .exit
 .notfound:
     xor eax,eax
@@ -253,17 +265,17 @@ ext2_readfile:
     push edi
     push esi
     mov ebp,esp
-%define fshandle ebp + 12 +2
-%define file ebp + 12 + 6
-%define buffer ebp + 12 + 10
-%define offset ebp + 12 + 14
-%define len ebp + 12 + 18
-    mov edi,[fshandle]
+%define handle ebp + 12 + 2
+%define buffer ebp + 12 + 6
+%define offset ebp + 12 + 10
+%define len ebp + 12 + 14
+    mov ebx,[handle]
+    mov edi,[ebx + ext2_file_handle.fsinfo]
     sub esp,ext2i_i_size + 8
 %define inode ebp - ext2i_i_size - 8
 %define totalblocks ebp - 4
     lea esi,[inode]
-    mov eax,[file]
+    mov eax,[ebx + ext2_file_handle.file]
     call ext2_loadinode
     mov ecx,[edi + ext2_fsinfo.log_block_size]
     mov edx,[len]
@@ -472,8 +484,11 @@ ext2_findfileindir:
     push ebp
     mov ebp,esp
     push esi
+    sub sp, 8
 %define filename ebp + 6
 %define len ebp + 10
+%define fshandle ebp - 12
+%define file ebp - 8
     cmp dword [len],0
     jne .nontriv
     jmp .exit
@@ -496,11 +511,13 @@ ext2_findfileindir:
     add edx,eax ; end of directory
     push dword 0
     push eax
-    push esi
+    mov [file], esi
     mov esi,eax
-    push edi
+    mov [fshandle], edi
+    lea eax, [fshandle]
+    push eax
     call ext2_readfile
-    add esp,20
+    add esp,16
     pop edx
     push dword [len]
     push dword [filename]

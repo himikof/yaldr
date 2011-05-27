@@ -91,12 +91,14 @@ load_kernel:
     mov dword [entry], 0
     push dword MULTIBOOT_SEARCH_END
     call malloc
+    add sp, 4
     mov [file_header], eax
     push dword MULTIBOOT_SEARCH_END
     push dword 0
     push dword [file_header]
     push dword [file]
     call ext2_readfile
+    add sp, 16
     mov [read_size], eax
     xor ecx, ecx
     sub eax, mb_hdr_t_size - 1 ; not searching past buffer end
@@ -115,7 +117,7 @@ load_kernel:
         cmp ecx, eax
         jb .l1
 .hdr_notfound:
-    printline "No multiboot header found in the image file"
+    printline "No multiboot header found in the image file", 10
     jmp .epilogue
 .hdr_found:
     ; ecx == hdr offset
@@ -123,13 +125,14 @@ load_kernel:
     mov [header], ecx
     push dword mb_info_t_size
     call malloc
+    add sp, 4
     mov [mbinfo], eax
     mov dword [eax + mb_info_t.flags], 0
     ; bit 0 is "supported" because we do not support modules
     ; bit 1 is always supported
     bt dword [header + mb_hdr_t.flags], 2
     jnz .l3
-        printline "Getting video modes is unsupported, cannot load kernel"
+        printline "Getting video modes is unsupported, cannot load kernel", 10
         jmp .epilogue        
     .l3:
     bt dword [header + mb_hdr_t.flags], 16
@@ -230,7 +233,7 @@ load_chunk:
 %define memsz ebp + 20
     cmp dword [addr], HIGH_MEMORY_START
     jae .l2
-        printline "Cannot load kernel into low memory"
+        printline "Cannot load kernel into low memory", 10
         mov eax, -1
         jmp .epilogue        
     .l2:
@@ -242,7 +245,7 @@ load_chunk:
     add sp, 16
     cmp eax, dword [filesz]
     je .l1
-        printline "Chunk read failure"
+        printline "Chunk read failure", 10
         mov eax, -1
         jmp .epilogue
     .l1:
