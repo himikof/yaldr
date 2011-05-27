@@ -566,12 +566,12 @@ ext2_loadinode:
 
 ; Dir inode in eax
 ext2_findfileindir:
+    push esi
     push ebp
     mov ebp,esp
-    push esi
-    sub sp, 8
-%define filename ebp + 6
-%define len ebp + 10
+    sub esp,8
+%define filename ebp + 10
+%define len ebp + 14
 %define fshandle ebp - 12
 %define file ebp - 8
     cmp dword [len],0
@@ -636,9 +636,9 @@ ext2_findfileindir:
 .gotit:
     mov eax,[esi + ext2i_de.inode]
 .exit:
-    pop esi
     mov esp,ebp
     pop ebp
+    pop esi
     ret
 
 
