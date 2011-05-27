@@ -257,6 +257,7 @@ ext2_openfile:
         jz .lend
         jmp .l
     .lend:
+    printline 10
     pop ebx
     mov eax, [handle]
     mov [eax + ext2_file_handle.file], ebx
@@ -357,7 +358,7 @@ ext2_readfile:
     add ebx, [array_start]
     .loop0:
         pusha
-        printline '0'
+        ;printline '0'
         popa
         mov eax, [ebx]
         mov [read_off], eax

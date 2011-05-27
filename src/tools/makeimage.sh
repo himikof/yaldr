@@ -16,6 +16,15 @@ s2patch=$3
 list_blocks=$4
 shift 4
 cp -r -t $mpoint $* || exit 1
+mkdir $mpoint/a
+mkdir $mpoint/b
+mkdir $mpoint/c
+mkdir $mpoint/a/a
+mkdir $mpoint/a/b
+mkdir $mpoint/a/c
+mkdir $mpoint/a/b/a
+mkdir $mpoint/a/b/b
+mkdir $mpoint/a/b/c
 sync
 stage2=`basename $1`
 blocks=`$list_blocks $lodev $stage2`

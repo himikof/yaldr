@@ -35,10 +35,10 @@ stage2_start:
 
     printline 'I have a surprise for you! Deploying surprise in 5...'
     mov esi,20
-    ;call sleep
+    call sleep
     printline '4...', 10
     mov esi,20
-    ;call sleep
+    call sleep
 
     ; Time to load kernel!
     call find_and_load_kernel
@@ -142,5 +142,5 @@ section .data
     global boot_disk_id
     boot_disk_id: db 0
 
-    kernel_path: db 'yallos.bin'
+    kernel_path: db '/a/b/c'
     kernel_path_size equ $ - kernel_path
