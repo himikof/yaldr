@@ -142,5 +142,5 @@ section .data
     global boot_disk_id
     boot_disk_id: db 0
 
-    kernel_path: db '/a/b/c'
+    kernel_path: db '/a/b/../../././a/..'
     kernel_path_size equ $ - kernel_path
