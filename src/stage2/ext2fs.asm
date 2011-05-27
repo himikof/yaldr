@@ -390,6 +390,7 @@ ext2_getfilesize:
 
 
 ; Returns file size in disk sectors (512 bytes)
+global ext2_getfilesectors
 ext2_getfilesectors:
     mov eax,[esp + 2]
     push esi
@@ -399,6 +400,11 @@ ext2_getfilesectors:
     mov eax,[esi + ext2i_i.blocks]
     add esp,ext2i_i_size
     pop esi
+    ret
+
+
+ext2_getinodesectors:
+    mov eax,[esi + ext2i_i.blocks]
     ret
 
 
@@ -446,28 +452,36 @@ ext2_loadinode:
     dec eax
     div dword [edi + ext2_fsinfo.inodes_per_group]
     ; eax = group number, edx = entry offset
-    cmp [edi + ext2_fsinfo.cached_itable_group],eax
-    jne .needread
-    mov eax,[edi + ext2_fsinfo.cached_itable]
-    jmp .read
-    .needread:
-    push edx
-    push eax
-    push dword [edi + ext2_fsinfo.cached_itable]
-    call free
-    add esp,4
-    pop eax
-    mov [edi + ext2_fsinfo.cached_itable_group],eax
+    ;cmp [edi + ext2_fsinfo.cached_itable_group],eax
+    ;jne .needread
+    ;mov eax,[edi + ext2_fsinfo.cached_itable]
+    ;jmp .read
+.needread:
+    ;push eax
+    ;push dword [edi + ext2_fsinfo.cached_itable]
+    ;call free
+    ;add esp,4
+    ;pop eax
+    ;mov [edi + ext2_fsinfo.cached_itable_group],eax
     shl eax,5   ; *= sizeof(ext2i_bg)
     mov esi,[edi + ext2_fsinfo.bgdt]
     mov esi,[esi + eax + ext2i_bg.inode_table]
+    mov eax,edx
+    mov ecx,[edi + ext2_fsinfo.log_block_size]
+    shr edx,cl
+    shr edx,3
+    add esi,edx
+    shl edx,3
+    shl edx,cl
+    sub eax,edx
+    push eax
     push dword 1
     push esi
     call ext2_readblocks
     add esp,8
-    mov [edi + ext2_fsinfo.cached_itable],eax
+    ;mov [edi + ext2_fsinfo.cached_itable],eax
     pop edx
-    .read:
+.read:
     pop esi
     shl edx,7   ; *=sizeof(ext2i_i)
     add edx,eax
@@ -493,22 +507,26 @@ ext2_findfileindir:
     jne .nontriv
     jmp .exit
 .nontriv:
-    sub esp,ext2i_i_size
-%define inode ebp - ext2i_i_size
+    sub esp,ext2i_i_size + 4
+%define inode ebp - ext2i_i_size - 4
+%define dirend ebp - 4
     push eax
     lea esi,[inode]
     call ext2_loadinode
     test word [esi + ext2i_i.mode],EXT2_S_IFDIR
     jz .notfound
-    call ext2_getfilesectors
+    call ext2_getinodesectors
     pop esi
     shl eax,9
-    mov edx,eax
+    push eax
     push eax
     call malloc
     add esp,4
-    push edx
+    pop edx
+    mov ecx,edx
     add edx,eax ; end of directory
+    mov [dirend],edx
+    push ecx
     push dword 0
     push eax
     mov [file], esi
@@ -518,11 +536,10 @@ ext2_findfileindir:
     push eax
     call ext2_readfile
     add esp,16
-    pop edx
     push dword [len]
     push dword [filename]
     .loop:
-        cmp esi,edx
+        cmp esi,[dirend]
         je .notfound
         xor ecx,ecx
         cmp dword [esi + ext2i_de.inode],0
