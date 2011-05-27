@@ -389,39 +389,46 @@ ext2_readfile:
     add cl, 10
     mov edx, 1
     shl edx, cl
-    cmp dword [suffix_size], 0
-    jz .l4
-        push dword [suffix_size]
-        mov ebx, edx
-        sub ebx, [suffix_size]
-        add ebx, [suffix_buffer]
-        push ebx
-        mov ecx, [buffer]
-        add ecx, [len]
-        sub ecx, [suffix_size]
-        push ecx
-        call memcpy
-        add sp, 12
-    .l4:
     cmp dword [prefix_size], 0
     jz .l5
         cmp dword [len], 1
         je .l6
-            push dword [prefix_size]
-            push dword [suffix_buffer]
+            mov ebx, edx
+            sub ebx, dword [prefix_size]
+            sub ebx, dword [suffix_size]
+            push ebx
+            mov ebx, dword [prefix_buffer]
+            add ebx, dword [prefix_size]
+            push ebx
             push dword [buffer]
             call memcpy
             add sp, 12            
-            jmp .l5
+            jmp .l7
         .l6:
-            push dword [prefix_size]
-            push dword [prefix_buffer]
+            mov ebx, edx
+            sub ebx, dword [prefix_size]
+            push ebx
+            mov ebx, dword [prefix_buffer]
+            add ebx, dword [prefix_size]
+            push ebx
             push dword [buffer]
             call memcpy
             add sp, 12
-            jmp .l5            
+            jmp .l7
     .l5:
-
+        cmp dword [suffix_size], 0
+        jz .l4
+            mov ebx, edx
+            sub ebx, dword [suffix_size]
+            push ebx
+            push dword [suffix_buffer]
+            mov ecx, [buffer]
+            sub ecx, ebx
+            push ecx
+            call memcpy
+            add sp, 12
+        .l4:
+    .l7:
 .exit:
     pop eax
     mov esp,ebp

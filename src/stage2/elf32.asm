@@ -145,6 +145,9 @@ load_elf32:
             push ebx
             sub sp, 16
             mov edx, dword [ebx + p_align]
+            pusha
+            printline "C"
+            popa
             cmp edx, 1
             ja .do_align
                 mov eax, dword [ebx + p_offset]
@@ -181,6 +184,9 @@ load_elf32:
             test eax, eax
             jnz .epilogue
         .continue:
+            pusha
+            ;printline ">"
+            popa
             add ebx, [esi + e_pheader_entry_size]
             dec edi
             jnz .l7
