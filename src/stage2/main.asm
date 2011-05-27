@@ -42,10 +42,21 @@ stage2_start:
 
     ; Time to load kernel!
     call find_and_load_kernel
+    push eax
+    push edx
 
     ; Boot it, at last.
-    ; call boot_kernel
-    
+
+    printline "Kernel is loaded", 10
+
+    mov esi, 40
+    call sleep
+
+    printline "Booting...", 10
+
+    call boot_kernel
+
+    ; should never reach here
     jmp $
 
 section .data.head
@@ -96,7 +107,7 @@ find_and_load_kernel:
 
     ; eax == entry point
     ; edx == mb_info_t*
-    
+
     ret
 
 ; Takes number of ticks in esi
@@ -131,5 +142,5 @@ section .data
     global boot_disk_id
     boot_disk_id: db 0
 
-    kernel_path: db 'stage2.bin'
+    kernel_path: db 'yallos.bin'
     kernel_path_size equ $ - kernel_path

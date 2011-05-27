@@ -7,6 +7,7 @@
 %include "asm/mem_private.inc"
 %include "asm/elf32.inc"
 %include "asm/ext2fs.inc"
+%include "asm/cpumode.inc"
 
 BITS 16
 
@@ -262,6 +263,30 @@ load_chunk:
     mov sp, bp
     pop bp
     ret
+
+; Boots the loaded kernel
+; Argument: mbinfo :: ptr - pointer to mb_info_t structure
+; Argument: entry :: ptr - kernel entry point
+; Does not return
+global boot_kernel
+boot_kernel:
+    mov edi, [esp + 2]
+    mov esi, [esp + 6]
+    push dword mb_trampoline
+    call switch_to_protected
+    ; Never returns
+
+BITS 32
+
+; Boot trampoline
+; edi: mb_info_t
+; esi: entry point
+mb_trampoline:
+    mov eax, MULTIBOOT_MAGIC
+    mov ebx, edi
+    jmp esi
+
+BITS 16
 
 section .data
     loader_name db "Yaldr 0", 0
