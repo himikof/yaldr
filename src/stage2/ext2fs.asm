@@ -162,6 +162,17 @@ ext2_openfs:
     add esp,8
     mov [edi + ext2_fsinfo.bgdt],eax
 
+    cmp dword [r1_block_buffer], 0
+    jnz .skip_buffers
+        push dword [edi + ext2_fsinfo.block_size]
+        call malloc
+        mov [r1_block_buffer], eax
+        call malloc
+        mov [r2_block_buffer], eax
+        call malloc
+        mov [r3_block_buffer], eax
+    .skip_buffers:
+
     mov eax,edi
     mov esp,ebp
     pop ebp
@@ -291,10 +302,11 @@ ext2_readfile:
     push edx
     cmp ebx,edx
     jae .nodirect
-    push ebx
+    lea eax,[inode + ext2i_i.block]    ; array start
+    push eax
     sub edx,ebx
-    push edx
-    lea ebx,[inode + ext2i_i.block]
+    push edx                           ; max blocks
+    ; ebx == requested start block
     call .r0
     add esp,8
     mov ebx,[esp] ; 12
@@ -308,7 +320,7 @@ ext2_readfile:
     push edx
     cmp ebx,edx
     jae .noindirect
-    push ebp
+    push ebx
     push dword 1
     mov ebx,[inode + ext2i_i.block + 32*12]
     call .r1
@@ -329,31 +341,34 @@ ext2_readfile:
 
 ; edi = fshandle
 ; esi = &(buffer)
-; ebx = first block pointer
-; stack: &(max blocks to read)
-; stack: first requested block pointer offset
+; ebx = requested start block
+; stack: max blocks
+; stack: array start
 ; ! overwrites esi
 .r0:
-    sub esp,8
-    push esi   ; esp + 0
-%define max_blocks esp + 12
-%define first_pointer esp + 16
+    sub sp, 12
+%define max_blocks esp + 14
+%define array_start esp + 18
+%define buffer esp + 0
 %define read_off esp + 4
 %define read_len esp + 8
-    mov [read_len],dword 1
-    mov ecx,[first_pointer]
-    shl ecx,2
-    add ebx,ecx
+    mov [read_len], dword 1
+    shl ebx,2
+    add ebx, [array_start]
     .loop0:
-        mov ecx,[ebx]
-        mov [read_off],ecx
+        pusha
+        printline '0'
+        popa
+        mov eax, [ebx]
+        mov [read_off], eax
+        mov [buffer], esi
         call ext2_readblocksraw ; preserves ebx
         add esi,[edi + ext2_fsinfo.block_size]
         dec dword [max_blocks]
         jz .r0.maxreached
         dec dword [totalblocks]
         jz .r0.allread
-        add ebx,32
+        add ebx,4
         jmp .loop0
 .r0.maxreached:
     add esp,12
@@ -365,12 +380,66 @@ ext2_readfile:
 
 ; edi = fshandle
 ; esi = &(buffer)
-; ebx = first block pointer
-; stack: &(max blocks to read)
-; stack: first requested block pointer offset
+; ebx = array start
+; stack: max blocks
+; stack: first block index
 ; ! overwrites esi
 .r1:
-
+    sub sp, 20
+%define max_blocks esp + 22
+%define array_start esp + 26
+%define buffer esp + 0
+%define read_off esp + 4
+%define read_len esp + 8
+%define pointer esp + 12  ; current pointer
+%define child_size esp + 16
+%define child_array_start read_off
+%define child_max_blocks buffer
+    mov [read_len],dword 1       ; param
+    mov ecx,[edi + ext2_fsinfo.log_block_size]
+    add ecx,8 ; log number of pointers in one block
+    mov eax, ebx
+    shr eax, cl
+    ; eax == first pointer index
+    shl eax, 2
+    add eax, [array_start]
+    mov [pointer], eax
+    mov edx,1
+    shl edx,cl
+    mov [child_size], edx
+    dec edx
+    ; edx == child mask
+    and ebx, edx
+    lea eax, [r1_block_buffer]
+    mov [buffer], eax            ; param
+    mov eax, [pointer]
+    mov [read_off], eax          ; param
+    call ext2_readblocksraw
+    mov eax, [pointer]
+    mov [child_array_start], eax ; param
+    mov edx, [child_size]
+    sub edx, ebx
+    mov [child_max_blocks], edx  ; param
+    call .r0
+    dec dword [max_blocks]
+    jz .r1.maxreached
+    .loop1:
+        lea eax, [r1_block_buffer]
+        mov [buffer], eax        ; param
+        mov eax, [pointer]
+        mov [read_off], eax      ; param
+        call ext2_readblocksraw ; preserves ebx
+        mov eax, [pointer]
+        mov [child_array_start], eax ; param
+        mov eax, [child_size]
+        mov [child_max_blocks], eax  ; param
+        dec dword [max_blocks]
+        jz .r0.maxreached
+        add dword [pointer], 4
+        jmp .loop1
+.r1.maxreached:
+    add sp, 20
+    ret
 
 
 ; Returns file size
@@ -410,21 +479,23 @@ ext2_getinodesectors:
 
 ; Preserves ebx
 ext2_readblocksraw:
-    mov eax,[esp + 10]
+    push ebx
+    mov eax,[esp + 14]
     mov cx,[edi + ext2_fsinfo.fraclog]
     shl eax,cl
     push eax
-    mov eax,[esp + 10]   ; we have pushed eax
+    mov eax,[esp + 14]   ; we have pushed eax
     mov cx,[edi + ext2_fsinfo.log_block_size]
     shl eax,cl
     shl eax,1
     push eax
-    mov eax,[esp + 10]
+    mov eax,[esp + 14]
     push eax
     push dword [edi + ext2_fsinfo.disk]
     call read_sectors
     add esp,16
-    mov eax,[esp + 2]
+    mov eax,[esp + 6]
+    pop ebx
     ret
 
 ext2_readblocks:
@@ -602,3 +673,7 @@ ext2_strcmp:
 
 
 section .data
+    r1_block_buffer: dd 0
+    r2_block_buffer: dd 0
+    r3_block_buffer: dd 0
+    
