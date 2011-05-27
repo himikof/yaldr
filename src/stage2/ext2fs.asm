@@ -291,7 +291,7 @@ ext2_readfile:
     mov ecx,[edi + ext2_fsinfo.log_block_size]
     mov edx,[len]
     shr edx,cl
-    shr edx,10 ; total sectors to read
+    shr edx,10 ; total blocks to read
     mov [totalblocks],edx
     mov esi,[buffer]
     mov ebx,[offset]
@@ -327,12 +327,26 @@ ext2_readfile:
     add esp,8
     mov ebx,[esp] ; number of pointers in indirect block
 .noindirect:
+    xor eax,eax
+    jmp .exit
 
 
 
 
     ;////
+.error:
+    mov ecx,[edi + ext2_fsinfo.log_block_size]
+    mov edx,[len]
+    shr edx,cl
+    shr edx,10 ; total blocks to read
+    sub edx,[totalblocks] ; we read this many blocks
+    shl edx,10
+    shl edx,cl
+    mov eax,edx
+    jmp .exit
 .allread:
+    mov eax,[len]
+.exit:
     mov esp,ebp
     pop esi
     pop edi
@@ -363,6 +377,8 @@ ext2_readfile:
         mov [read_off], eax
         mov [buffer], esi
         call ext2_readblocksraw ; preserves ebx
+        cmp eax,-1
+        je .error
         add esi,[edi + ext2_fsinfo.block_size]
         dec dword [max_blocks]
         jz .r0.maxreached
@@ -415,6 +431,8 @@ ext2_readfile:
     mov eax, [pointer]
     mov [read_off], eax          ; param
     call ext2_readblocksraw
+    cmp eax,-1
+    je .error
     mov eax, [pointer]
     mov [child_array_start], eax ; param
     mov edx, [child_size]
@@ -429,6 +447,8 @@ ext2_readfile:
         mov eax, [pointer]
         mov [read_off], eax      ; param
         call ext2_readblocksraw ; preserves ebx
+        cmp eax,-1
+        je .error
         mov eax, [pointer]
         mov [child_array_start], eax ; param
         mov eax, [child_size]
@@ -494,7 +514,6 @@ ext2_readblocksraw:
     push dword [edi + ext2_fsinfo.disk]
     call read_sectors
     add esp,16
-    mov eax,[esp + 6]
     pop ebx
     ret
 
