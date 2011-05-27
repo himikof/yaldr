@@ -24,7 +24,7 @@ TARGETS = fdimage
 
 $(call local_target,prefdimage)_OUTPUT := prefdimage
 $(call add_custom,prefdimage,)
-$(call local_target,prefdimage)_SRCS := $(stage2_stage2_PATH)
+$(call local_target,prefdimage)_SRCS := $(stage2_stage2_PATH) $(_MODULE_PATH)/yallos.bin
 $(call local_target,prefdimage)_TDEPS := $(call local_target,s2patch) 
 
 QUIET_MKIMG = @echo 'MKIMG '$(call local_build,$@) &&
