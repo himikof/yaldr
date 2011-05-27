@@ -94,32 +94,33 @@ load_elf32:
         printline "ELF signature is not recognized", 10
         jmp .epilogue
     .l2:
-    cmp word [header + e_type], ET_EXEC
+    mov esi, [header]
+    cmp word [esi + e_type], ET_EXEC
     jne .l3
-    cmp word [header + e_machine], EM_386
+    cmp word [esi + e_machine], EM_386
     jne .l3
-    cmp dword [header + e_version], EV_CURRENT
+    cmp dword [esi + e_version], EV_CURRENT
     jne .l3
-    cmp dword [header + e_pheader_offset], 0
+    cmp dword [esi + e_pheader_offset], 0
     je .l3
-    cmp word [header + e_pheader_entries], 0
+    cmp word [esi + e_pheader_entries], 0
     je .l3
-    cmp word [header + e_pheader_entry_size], elf_pheader_t_size
+    cmp word [esi + e_pheader_entry_size], elf_pheader_t_size
     jb .l3
     jmp .l4
     .l3:
         printline "ELF file does not have right parameters", 10
         jmp .epilogue
     .l4:
-    movzx eax, word [header + e_pheader_entries]
-    mul word [header + e_pheader_entries]
+    movzx eax, word [esi + e_pheader_entries]
+    mul word [esi + e_pheader_entries]
     push eax
     push eax
     call malloc
     add sp, 4
     mov dword [phdrs], eax
     push dword [esp]
-    push dword [header + e_pheader_offset]
+    push dword [esi + e_pheader_offset]
     push dword [phdrs]
     push dword [file]
     call ext2_readfile
@@ -130,9 +131,10 @@ load_elf32:
         jmp .epilogue
     .l5:
     add sp, 4
-    mov esi, [header + e_pheader_entries]
+    push edi
+    mov edi, [esi + e_pheader_entries]
     mov ebx, [phdrs]
-    test esi, esi
+    test edi, edi
     jz .l6
         .l7:
             cmp dword [ebx + p_type], PT_LOAD
@@ -176,11 +178,12 @@ load_elf32:
             test eax, eax
             jnz .epilogue
         .continue:
-            add ebx, [header + e_pheader_entry_size]
-            dec esi
+            add ebx, [esi + e_pheader_entry_size]
+            dec edi
             jnz .l7
     .l6:
-    mov eax, [header + e_entry]
+    mov eax, [esi + e_entry]
+    pop edi
     mov [entry], eax
 .epilogue:
     mov eax, [entry]
