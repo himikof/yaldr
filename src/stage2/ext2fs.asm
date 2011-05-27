@@ -288,11 +288,12 @@ ext2_readfile:
 %define len ebp + 12 + 14
     mov ebx,[handle]
     mov edi,[ebx + ext2_file_handle.fsinfo]
-    sub esp,ext2i_i_size + 16
-%define inode ebp - ext2i_i_size - 16
+    sub esp,ext2i_i_size + 20
+%define inode ebp - ext2i_i_size - 20
 %define totalblocks ebp - 4
 %define prefix_size ebp - 8
 %define suffix_size ebp - 12
+%define blockscount ebp - 16
     lea esi,[inode]
     mov word [readfile_flags], 0
     mov eax,[ebx + ext2_file_handle.file]
@@ -335,6 +336,7 @@ ext2_readfile:
     add edx, [suffix_size]
     shr edx,cl ; total blocks to read
     mov [totalblocks],edx
+    mov [blockscount], edx
 .direct:
     mov edx,12
     push edx
@@ -385,19 +387,16 @@ ext2_readfile:
 .allread:
     mov eax,[len]
     push eax
-    mov ecx,[edi + ext2_fsinfo.log_block_size]
-    add cl, 10
-    mov edx, 1
-    shl edx, cl
+    mov edx,[edi + ext2_fsinfo.block_size]
     cmp dword [prefix_size], 0
     jz .l5
-        cmp dword [len], 1
-        je .l6
+        cmp dword [blockscount], 1
+        jne .l6
             mov ebx, edx
             sub ebx, dword [prefix_size]
             sub ebx, dword [suffix_size]
             push ebx
-            mov ebx, dword [prefix_buffer]
+            mov ebx, dword [suffix_buffer]
             add ebx, dword [prefix_size]
             push ebx
             push dword [buffer]
@@ -470,7 +469,7 @@ ext2_readfile:
         btr word [readfile_flags], 1 ; flag_suffix
         setnc al
         test ax, ax
-        cmovz ecx, eax               ; if CF == 1 and ZF == 1
+        cmovz ecx, edx               ; if CF == 1 and ZF == 1
         mov [buffer], ecx
         call ext2_readblocksraw ; preserves ebx
         cmp eax,-1
@@ -486,8 +485,6 @@ ext2_readfile:
     add esp,12
     ret
 .r0.allread:
-    btc word [readfile_flags], 1 ; flag_suffix
-    
     add esp,12 + 2
     jmp .allread
 

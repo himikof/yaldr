@@ -135,7 +135,7 @@ load_elf32:
     .l5:
     add sp, 4
     push edi
-    mov edi, [esi + e_pheader_entries]
+    movzx edi, word [esi + e_pheader_entries]
     mov ebx, [phdrs]
     test edi, edi
     jz .l6
@@ -151,31 +151,31 @@ load_elf32:
             cmp edx, 1
             ja .do_align
                 mov eax, dword [ebx + p_offset]
-                mov [esp - 4], eax     ; offset
+                mov [esp + 0], eax     ; offset
                 mov eax, dword [ebx + p_vaddr]
-                mov [esp - 8], eax     ; addr
+                mov [esp + 4], eax     ; addr
                 mov eax, dword [ebx + p_filesize]
-                mov [esp - 12], eax    ; filesz
+                mov [esp + 8], eax    ; filesz
                 mov eax, dword [ebx + p_memsize]
-                mov [esp - 16], eax    ; memsz                
+                mov [esp + 12], eax    ; memsz
             .do_align:
                 dec edx
                 mov eax, dword [ebx + p_offset]
                 not edx
                 and eax, edx
-                mov [esp - 4], eax     ; offset
+                mov [esp + 0], eax     ; offset
                 mov eax, dword [ebx + p_vaddr]
                 and eax, edx
-                mov [esp - 8], eax     ; addr
+                mov [esp + 4], eax     ; addr
                 not edx
                 mov ecx, dword [ebx + p_offset]
                 and ecx, edx
                 mov eax, dword [ebx + p_filesize]
                 add eax, ecx
-                mov [esp - 12], eax    ; filesz
+                mov [esp + 8], eax    ; filesz
                 mov eax, dword [ebx + p_memsize]
                 add eax, ecx
-                mov [esp - 16], eax    ; memsz
+                mov [esp + 12], eax    ; memsz
             .do_read:
             push dword [file]
             call load_chunk
