@@ -171,6 +171,10 @@ ext2_openfs:
         mov [r2_block_buffer], eax
         call malloc
         mov [r3_block_buffer], eax
+        call malloc
+        mov [prefix_buffer], eax
+        call malloc
+        mov [suffix_buffer], eax
     .skip_buffers:
 
     mov eax,edi
@@ -269,6 +273,8 @@ ext2_openfile:
     pop ebp
     ret
 
+flag_prefix EQU 1
+flag_suffix EQU 2
 
 global ext2_readfile
 ext2_readfile:
@@ -282,21 +288,53 @@ ext2_readfile:
 %define len ebp + 12 + 14
     mov ebx,[handle]
     mov edi,[ebx + ext2_file_handle.fsinfo]
-    sub esp,ext2i_i_size + 8
-%define inode ebp - ext2i_i_size - 8
+    sub esp,ext2i_i_size + 16
+%define inode ebp - ext2i_i_size - 16
 %define totalblocks ebp - 4
+%define prefix_size ebp - 8
+%define suffix_size ebp - 12
     lea esi,[inode]
+    mov word [readfile_flags], 0
     mov eax,[ebx + ext2_file_handle.file]
     call ext2_loadinode
     mov ecx,[edi + ext2_fsinfo.log_block_size]
-    mov edx,[len]
-    shr edx,cl
-    shr edx,10 ; total blocks to read
-    mov [totalblocks],edx
+    add cl, 10
+    mov eax, 1
+    shl eax, cl
+    dec eax    ; block size mask
     mov esi,[buffer]
     mov ebx,[offset]
-    shr ebx,cl
-    shr ebx,10 ; first block to read
+    mov edx, ebx
+    and edx, eax ; prefix_size
+    mov dword [prefix_size], edx
+    test edx, edx
+    jz .l1
+        or word [readfile_flags], flag_prefix
+        pusha
+        printline 'P'
+        popa
+    .l1:
+    mov edx, ebx
+    add edx, [len]
+    add edx, eax
+    not eax
+    and edx, eax
+    sub edx, [offset]
+    sub edx, [len]
+    mov dword [suffix_size], edx
+    test edx, edx
+    jz .l2
+        or word [readfile_flags], flag_suffix
+        pusha
+        printline 'S'
+        popa
+    .l2:
+    shr ebx,cl ; first block to read
+    mov edx, [len]
+    add edx, [prefix_size]
+    add edx, [suffix_size]
+    shr edx,cl ; total blocks to read
+    mov [totalblocks],edx
 .direct:
     mov edx,12
     push edx
@@ -346,7 +384,46 @@ ext2_readfile:
     jmp .exit
 .allread:
     mov eax,[len]
+    push eax
+    mov ecx,[edi + ext2_fsinfo.log_block_size]
+    add cl, 10
+    mov edx, 1
+    shl edx, cl
+    cmp dword [suffix_size], 0
+    jz .l4
+        push dword [suffix_size]
+        mov ebx, edx
+        sub ebx, [suffix_size]
+        add ebx, [suffix_buffer]
+        push ebx
+        mov ecx, [buffer]
+        add ecx, [len]
+        sub ecx, [suffix_size]
+        push ecx
+        call memcpy
+        add sp, 12
+    .l4:
+    cmp dword [prefix_size], 0
+    jz .l5
+        cmp dword [len], 1
+        je .l6
+            push dword [prefix_size]
+            push dword [suffix_buffer]
+            push dword [buffer]
+            call memcpy
+            add sp, 12            
+            jmp .l5
+        .l6:
+            push dword [prefix_size]
+            push dword [prefix_buffer]
+            push dword [buffer]
+            call memcpy
+            add sp, 12
+            jmp .l5            
+    .l5:
+
 .exit:
+    pop eax
     mov esp,ebp
     pop esi
     pop edi
@@ -375,7 +452,19 @@ ext2_readfile:
         popa
         mov eax, [ebx]
         mov [read_off], eax
-        mov [buffer], esi
+        mov ecx, esi
+        mov eax, [prefix_buffer]
+        btr word [readfile_flags], 0 ; flag_prefix
+        cmovc ecx, eax
+        mov edx, [suffix_buffer]
+        cmp dword [totalblocks], 1
+        setne al
+        mov ah, al
+        btr word [readfile_flags], 1 ; flag_suffix
+        setnc al
+        test ax, ax
+        cmovz ecx, eax               ; if CF == 1 and ZF == 1
+        mov [buffer], ecx
         call ext2_readblocksraw ; preserves ebx
         cmp eax,-1
         je .error
@@ -390,6 +479,8 @@ ext2_readfile:
     add esp,12
     ret
 .r0.allread:
+    btc word [readfile_flags], 1 ; flag_suffix
+    
     add esp,12 + 2
     jmp .allread
 
@@ -430,6 +521,9 @@ ext2_readfile:
     mov [buffer], eax            ; param
     mov eax, [pointer]
     mov [read_off], eax          ; param
+    pusha
+    printline '!'
+    popa
     call ext2_readblocksraw
     cmp eax,-1
     je .error
@@ -446,6 +540,9 @@ ext2_readfile:
         mov [buffer], eax        ; param
         mov eax, [pointer]
         mov [read_off], eax      ; param
+        pusha
+        printline '1'
+        popa
         call ext2_readblocksraw ; preserves ebx
         cmp eax,-1
         je .error
@@ -695,4 +792,7 @@ section .data
     r1_block_buffer: dd 0
     r2_block_buffer: dd 0
     r3_block_buffer: dd 0
+    prefix_buffer: dd 0
+    suffix_buffer: dd 0
+    readfile_flags: dw 0
     

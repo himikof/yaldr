@@ -113,7 +113,7 @@ load_elf32:
         jmp .epilogue
     .l4:
     movzx eax, word [esi + e_pheader_entries]
-    mul word [esi + e_pheader_entries]
+    mul word [esi + e_pheader_entry_size]
     push eax
     push eax
     call malloc
@@ -123,6 +123,9 @@ load_elf32:
     push dword [esi + e_pheader_offset]
     push dword [phdrs]
     push dword [file]
+    pusha
+    printline "Reading program header table...", 10
+    popa
     call ext2_readfile
     add sp, 16
     cmp eax, dword [esp]
